@@ -1,0 +1,2 @@
+# LF everywhere, so a checkout on any system packs the same bytes.
+* text=auto eol=lf
