@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: Apache-2.0
+// printer-bridge/1: the protocol between a page that frames a printer client and the client in the frame
+// (protocol.ts), the client's side (client.ts: connectBridge) and the host's (host.ts: createBridgeHost, which keeps the
+// host's rules). vectors/*.json hold the conformance cases every implementation of either side runs. Only these are the
+// package's API; the modules' other exports are for its tests.
+export {
+  BRIDGE_PROTOCOL,
+  BRIDGE_VERSIONS,
+  CAPABILITIES_V1,
+  checkHostOrigins,
+  CLIENT_EVENTS,
+  HOST_EVENTS,
+  isPrinterKey,
+  LIMITS,
+  OPS,
+  originAllowed,
+  parseBridgePrinter,
+  parseGcodeData,
+  parsePrintDecision,
+  parseQueueAnswer,
+  parseStatusData,
+  PRINT_DECISIONS,
+  PRINTER_KEY_RE,
+  READ_METHODS,
+  type BridgeError,
+  type BridgeObjects,
+  type BridgeOp,
+  type BridgePrinter,
+  type BridgeRole,
+  type ClientEventName,
+  type Density,
+  type Hello,
+  type HostEventName,
+  type PlateClearAsk,
+  type PrintDecision,
+  type PrinterRoute,
+  type PrintMode,
+  type QueueAnswer,
+  type ReadMethod,
+  type Theme,
+  type UploadStep,
+  type Welcome,
+} from './protocol.ts';
+export { connectBridge, type BridgeClient, type ConnectOptions, type EventListener, type RequestOptions } from './client.ts';
+export {
+  createBridgeHost,
+  type BridgeHost,
+  type BridgeHostOptions,
+  type ConfirmAnswer,
+  type ConfirmRequest,
+  type HostAdapter,
+  type HostFrame,
+  type HostLogEntry,
+  type HostStatus,
+  type StatusFeed,
+} from './host.ts';

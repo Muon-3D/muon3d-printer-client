@@ -1,0 +1,744 @@
+{
+  "$comment": [
+    "SPDX-License-Identifier: Apache-2.0. Upload requests, and the verdict each check gives them.",
+    "headers: name/value pairs in order; the value \"{length}\" stands for the body's length in bytes. body: the body as text, sent as UTF-8; or bodyBase64: the body's bytes, for a body that is not UTF-8.",
+    "gateway: what the printer's gateway does with this request as a remote POST /server/files/upload: \"ok\" (it rebuilds the body and forwards it), or the status it refuses it with (checkUpload).",
+    "print: the same under the rules a client of this package also keeps (checkPrintUpload)."
+  ],
+  "cases": [
+    {
+      "name": "the builder's body: root, checksum, file",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": "ok"
+    },
+    {
+      "name": "the file part without a Content-Type",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": "ok"
+    },
+    {
+      "name": "no CRLF after the closing delimiter",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--",
+      "gateway": "ok",
+      "print": "ok"
+    },
+    {
+      "name": "a quoted boundary in the header",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=\"muon3d-a515612f48fac2c3870ef43324ac2096\""],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": "ok"
+    },
+    {
+      "name": "header names in lower case, as fetch sends them",
+      "headers": [
+        ["content-type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["content-length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": "ok"
+    },
+    {
+      "name": "a part's Content-Disposition header name in lower case",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\ncontent-disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": "ok"
+    },
+    {
+      "name": "a boundary of 70 characters",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa--\r\n",
+      "gateway": "ok",
+      "print": "ok"
+    },
+    {
+      "name": "a boundary of RFC 2046's other characters",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary='()+_,-./:=?Az09"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--'()+_,-./:=?Az09\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--'()+_,-./:=?Az09\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--'()+_,-./:=?Az09\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--'()+_,-./:=?Az09--\r\n",
+      "gateway": "ok",
+      "print": "ok"
+    },
+    {
+      "name": "a file name outside ASCII",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"Würfel 20 mm.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": "ok"
+    },
+    {
+      "name": "an empty file",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"empty.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": "ok"
+    },
+    {
+      "name": "a file name with a leading space (the gateway takes it; Moonraker would store it without the space)",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\" cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": 400
+    },
+    {
+      "name": "a file name with a trailing space (Moonraker would store it without the space)",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode \"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": 400
+    },
+    {
+      "name": "a .ufp file name (Moonraker would store it as .gcode)",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.UFP\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": 400
+    },
+    {
+      "name": "a byte order mark before a path of \"..\" (the gateway compares segments as bytes)",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"path\"\r\n\r\n\ufeff..\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": 400
+    },
+    {
+      "name": "a byte order mark before the checksum",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\n\ufeffa515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": 400
+    },
+    {
+      "name": "no root (the gateway writes gcodes; a client of this package always names it)",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": 400
+    },
+    {
+      "name": "a print field",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"print\"\r\n\r\ntrue\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": 400
+    },
+    {
+      "name": "a path field",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"path\"\r\n\r\nplates\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": 400
+    },
+    {
+      "name": "no checksum",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": 400
+    },
+    {
+      "name": "a checksum in upper case",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\nA515612F48FAC2C3870EF43324AC2096C67273FC4DF8488CD3D27CB15DFF2C95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": 400
+    },
+    {
+      "name": "the checksum after the file",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": "ok",
+      "print": 400
+    },
+    {
+      "name": "Fluidd's double FormData: the header names one serialisation's boundary, the body uses another's",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=----formdata-undici-012345678901"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "------formdata-undici-098765432109\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n------formdata-undici-098765432109\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n------formdata-undici-098765432109\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n------formdata-undici-098765432109--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a preamble before the first delimiter",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "This is a preamble.\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a body that opens partway into its boundary",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a chunked upload",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Transfer-Encoding", "chunked"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 411,
+      "print": 411
+    },
+    {
+      "name": "Transfer-Encoding: chunked beside a Content-Length (framing the gateway will not read)",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Transfer-Encoding", "chunked"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "Transfer-Encoding: identity",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Transfer-Encoding", "identity"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "two Transfer-Encodings",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Transfer-Encoding", "chunked"],
+        ["Transfer-Encoding", "chunked"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "no Content-Length",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 411,
+      "print": 411
+    },
+    {
+      "name": "a Content-Length that is not the body's",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "12"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "two Content-Lengths",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "two Content-Types",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"],
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a charset parameter beside the boundary",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096; charset=utf-8"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "not multipart/form-data",
+      "headers": [
+        ["Content-Type", "multipart/mixed; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "no boundary parameter",
+      "headers": [
+        ["Content-Type", "multipart/form-data"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a content-encoded upload",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"],
+        ["Content-Encoding", "gzip"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a boundary of 71 characters",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a boundary with a space",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=a b"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--a b\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--a b\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--a b\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--a b--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "an empty boundary",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary="],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n----\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "LF line ends",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\nContent-Disposition: form-data; name=\"root\"\n\ngcodes\n--muon3d-a515612f48fac2c3870ef43324ac2096\nContent-Disposition: form-data; name=\"checksum\"\n\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\n--muon3d-a515612f48fac2c3870ef43324ac2096\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\nContent-Type: application/octet-stream\n\nG28\nG1 X10 Y10\n\n--muon3d-a515612f48fac2c3870ef43324ac2096--\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a part the upload does not read",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"select\"\r\n\r\nyes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "root twice",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "checksum twice",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "two files",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"other.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "no file",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "no part at all",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a part header other than Content-Disposition and Content-Type",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: binary\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a byte order mark opening a part's headers",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\n\ufeffContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\n\r\nG28\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a part's headers that are not UTF-8",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "bodyBase64": "LS1tdW9uM2QtYTUxNTYxMmY0OGZhYzJjMzg3MGVmNDMzMjRhYzIwOTYNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0i/yINCg0KeA0KLS1tdW9uM2QtYTUxNTYxMmY0OGZhYzJjMzg3MGVmNDMzMjRhYzIwOTYNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iZmlsZSI7IGZpbGVuYW1lPSJjdWJlLmdjb2RlIg0KQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0NCg0KRzI4CkcxIFgxMCBZMTAKDQotLW11b24zZC1hNTE1NjEyZjQ4ZmFjMmMzODcwZWY0MzMyNGFjMjA5Ni0tDQo=",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a field with a file name",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"; filename=\"root.txt\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "filename before name",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; filename=\"cube.gcode\"; name=\"file\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "an unquoted name",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=root\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a file name with a double quote",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a\"b.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a file name with a semicolon",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a;b.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a part's headers longer than 2048 bytes",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a field longer than 1024 bytes",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a control character in a field",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\t\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a control character in the file name",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cu\u0001be.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a tab in the file name (a header may hold a tab, a quoted string may not)",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cu\tbe.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "the body goes on after the closing delimiter",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\ntrailing",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "the body ends inside the file",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a delimiter followed by something other than CRLF or --",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096  \r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "root = config",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\nconfig\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 403,
+      "print": 403
+    },
+    {
+      "name": "root = config after the file (the gateway refuses it once the file has been sent)",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\nconfig\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 403,
+      "print": 403
+    },
+    {
+      "name": "a byte order mark before the root's value",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\n\ufeffgcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 403,
+      "print": 403
+    },
+    {
+      "name": "a path that leaves the root",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"path\"\r\n\r\n../config\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 403,
+      "print": 403
+    },
+    {
+      "name": "a path with a backslash",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"path\"\r\n\r\na\\b\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 403,
+      "print": 403
+    },
+    {
+      "name": "a path that is not UTF-8",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "bodyBase64": "LS1tdW9uM2QtYTUxNTYxMmY0OGZhYzJjMzg3MGVmNDMzMjRhYzIwOTYNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0icm9vdCINCg0KZ2NvZGVzDQotLW11b24zZC1hNTE1NjEyZjQ4ZmFjMmMzODcwZWY0MzMyNGFjMjA5Ng0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJwYXRoIg0KDQrDKA0KLS1tdW9uM2QtYTUxNTYxMmY0OGZhYzJjMzg3MGVmNDMzMjRhYzIwOTYNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iY2hlY2tzdW0iDQoNCmE1MTU2MTJmNDhmYWMyYzM4NzBlZjQzMzI0YWMyMDk2YzY3MjczZmM0ZGY4NDg4Y2QzZDI3Y2IxNWRmZjJjOTUNCi0tbXVvbjNkLWE1MTU2MTJmNDhmYWMyYzM4NzBlZjQzMzI0YWMyMDk2DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZpbGUiOyBmaWxlbmFtZT0iY3ViZS5nY29kZSINCkNvbnRlbnQtVHlwZTogYXBwbGljYXRpb24vb2N0ZXQtc3RyZWFtDQoNCkcyOApHMSBYMTAgWTEwCg0KLS1tdW9uM2QtYTUxNTYxMmY0OGZhYzJjMzg3MGVmNDMzMjRhYzIwOTYtLQ0K",
+      "gateway": 400,
+      "print": 400
+    },
+    {
+      "name": "a file name with a slash",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"plates/cube.gcode\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 403,
+      "print": 403
+    },
+    {
+      "name": "the file name \"..\"",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"..\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 403,
+      "print": 403
+    },
+    {
+      "name": "the file name \".\"",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\".\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 403,
+      "print": 403
+    },
+    {
+      "name": "a blank file name",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"   \"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 403,
+      "print": 403
+    },
+    {
+      "name": "a file name with a backslash (a quoted string may not hold one)",
+      "headers": [
+        ["Content-Type", "multipart/form-data; boundary=muon3d-a515612f48fac2c3870ef43324ac2096"],
+        ["Content-Length", "{length}"]
+      ],
+      "body": "--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"root\"\r\n\r\ngcodes\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"checksum\"\r\n\r\na515612f48fac2c3870ef43324ac2096c67273fc4df8488cd3d27cb15dff2c95\r\n--muon3d-a515612f48fac2c3870ef43324ac2096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"..\\config\\printer.cfg\"\r\nContent-Type: application/octet-stream\r\n\r\nG28\nG1 X10 Y10\n\r\n--muon3d-a515612f48fac2c3870ef43324ac2096--\r\n",
+      "gateway": 400,
+      "print": 400
+    }
+  ]
+}

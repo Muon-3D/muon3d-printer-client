@@ -1,0 +1,323 @@
+{
+  "$comment": [
+    "SPDX-License-Identifier: Apache-2.0. printer-bridge/1's host rules, as scenarios any host implementation runs against itself.",
+    "printers: the host's printers by name (\"$walnut\", \"$oak\" are the keys of messages.json); each starts in state standby with no file loaded, no files, an empty queue and an empty history; selected is the host's selection at the start. capabilities: what the welcome grants (default: all of version 1).",
+    "The printer answers the host's reads as Moonraker does: server.job_queue.status lists its queue, server.files.metadata answers for a file it has and is a 404 for one it has not, server.history.list gives its jobs newest first (job_id, filename, status, filament_used) or is a 404 when it keeps no history. An upload stores its file; a start adds a job in_progress to the history (the state changes only by the steps); a queue entry adds to the queue.",
+    "Steps, in order:",
+    "  {\"upload\": {\"printer\", \"name\"}, \"during\"?: {\"select\": name} | {\"cancel\": true}, \"expect\"} sends files.upload with the bytes \"G28\\nG1 X10 Y10\\n\" (size and checksum to match); during: what happens while the printer receives it.",
+    "  {\"request\": {\"op\", \"params\"}, \"dialog\"?: \"print\" | \"print-ticked\" | \"print-unticked\" | \"upload-only\" | \"close\" | {\"select\": name} | {\"set\": {name: patch}} | {\"cancel\": true}, \"asked\"?: \"ask\" | \"not-needed\", \"expect\"} sends a request; dialog: how the host's own dialog is answered if it opens (print: Print, ticked only when the tick was not asked; print-unticked: Print without the tick; select, set: the host's selection or a printer changes while it is open; cancel: the frame cancels the request while it is open); asked: whether the dialog showed \"Plate is clear\". A step without dialog expects none to open.",
+    "  {\"select\": name | null} the host's selection changes (it then tells the frame); {\"set\": {name: {\"state\"?, \"filename\"?, \"role\"?, \"online\"?, \"files\"?, \"queued\"?, \"history\"?}}} a printer changes (the host tells the frame); {\"finish\": name, \"status\"?: \"completed\" | \"cancelled\" | \"error\", \"filament_used\"?: mm} the printer's newest job ends (its state with it); {\"hostStart\": {\"printer\", \"filename\"}} the host prints a file from its own list, without the frame; {\"advance\": ms} time passes; {\"reload\": true} the frame says hello again with a new nonce (a new session).",
+    "expect: {\"result\": partial} (every field given must equal the result's) or {\"error\": kind}; \"calls\": the adapter's writes during the step, in order (\"upload walnut a.gcode\", \"start walnut a.gcode\", \"queue walnut b.gcode,c.gcode\", \"cancel walnut\"), when the step lists them; a step that lists none expects none."
+  ],
+  "printers": {
+    "walnut": { "key": "$walnut", "name": "Walnut", "model": "Muon3D M1", "route": "local", "role": null, "online": true },
+    "oak": { "key": "$oak", "name": "Oak", "model": "Muon3D M1", "route": "cloud", "role": "operator", "online": true }
+  },
+  "cases": [
+    {
+      "name": "upload, then Print in the host's dialog: the first path starts",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode", "size": 15 } }, "calls": ["upload walnut a.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "print", "expect": { "result": { "decision": "started", "startedPath": "a.gcode" } }, "calls": ["start walnut a.gcode"] }
+      ]
+    },
+    {
+      "name": "print.request for a path this frame did not upload",
+      "selected": "walnut",
+      "steps": [{ "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["old.gcode"], "mode": "start", "plateClear": "not-needed" } }, "expect": { "error": "not-allowed" } }]
+    },
+    {
+      "name": "print.request for a path uploaded to another printer",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "select": "oak" },
+        { "request": { "op": "print.request", "params": { "printer": "$oak", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "expect": { "error": "not-allowed" } }
+      ]
+    },
+    {
+      "name": "print.request more than 30 minutes after the upload",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "advance": 1800001 },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "expect": { "error": "not-allowed" } }
+      ]
+    },
+    {
+      "name": "an op that names a printer the host has not selected",
+      "selected": "oak",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "error": "printer-changed" } },
+        { "request": { "op": "moonraker.read", "params": { "printer": "$walnut", "method": "server.info" } }, "expect": { "error": "printer-changed" } },
+        { "request": { "op": "status.watch", "params": { "printer": "$walnut", "objects": { "print_stats": null } } }, "expect": { "error": "printer-changed" } }
+      ]
+    },
+    {
+      "name": "a switch in the host during the upload ends it, and nothing is recorded",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "during": { "select": "oak" }, "expect": { "error": "printer-changed" }, "calls": ["upload walnut a.gcode"] },
+        { "select": "walnut" },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "expect": { "error": "not-allowed" } }
+      ]
+    },
+    {
+      "name": "a switch between the upload and print.request",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "select": "oak" },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "expect": { "error": "printer-changed" } }
+      ]
+    },
+    {
+      "name": "a switch while the host's dialog is open: nothing starts",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": { "select": "oak" }, "expect": { "error": "printer-changed" } }
+      ]
+    },
+    {
+      "name": "Upload only, and a dialog closed with its ✕",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "upload-only", "expect": { "result": { "decision": "uploaded-only" } } },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "close", "expect": { "result": { "decision": "uploaded-only" } } }
+      ]
+    },
+    {
+      "name": "Plate is clear asked: Print needs the tick",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "ask" } }, "dialog": "print-unticked", "expect": { "result": { "decision": "uploaded-only" } } },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "ask" } }, "dialog": "print-ticked", "expect": { "result": { "decision": "started", "startedPath": "a.gcode" } }, "calls": ["start walnut a.gcode"] }
+      ]
+    },
+    {
+      "name": "a start on a printer that is printing is not sent",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "set": { "walnut": { "state": "printing", "filename": "other.gcode" } } },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "print", "expect": { "result": { "decision": "not-started" } } }
+      ]
+    },
+    {
+      "name": "queue mode: only while printing or paused, every path",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "upload": { "printer": "$walnut", "name": "b.gcode" }, "expect": { "result": { "path": "b.gcode" } }, "calls": ["upload walnut b.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode", "b.gcode"], "mode": "queue", "plateClear": "not-needed" } }, "dialog": "print", "expect": { "result": { "decision": "not-queued" } } },
+        { "set": { "walnut": { "state": "paused", "filename": "other.gcode" } } },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode", "b.gcode"], "mode": "queue", "plateClear": "not-needed" } }, "dialog": "print", "expect": { "result": { "decision": "queued" } }, "calls": ["queue walnut a.gcode,b.gcode"] }
+      ]
+    },
+    {
+      "name": "queue mode: Upload only, ✕ or Esc in the dialog queues nothing, and the files stay uploaded",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "upload": { "printer": "$walnut", "name": "b.gcode" }, "expect": { "result": { "path": "b.gcode" } }, "calls": ["upload walnut b.gcode"] },
+        { "set": { "walnut": { "state": "printing", "filename": "other.gcode" } } },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode", "b.gcode"], "mode": "queue", "plateClear": "not-needed" } }, "dialog": "upload-only", "asked": "not-needed", "expect": { "result": { "decision": "uploaded-only" } } },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode", "b.gcode"], "mode": "queue", "plateClear": "not-needed" } }, "dialog": "close", "expect": { "result": { "decision": "uploaded-only" } } },
+        { "request": { "op": "queue.add", "params": { "printer": "$walnut", "paths": ["a.gcode"] } }, "expect": { "error": "not-allowed" } },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode", "b.gcode"], "mode": "queue", "plateClear": "not-needed" } }, "dialog": "print", "expect": { "result": { "decision": "queued" } }, "calls": ["queue walnut a.gcode,b.gcode"] }
+      ]
+    },
+    {
+      "name": "several plates in one print.request: one dialog for them all; Upload only approves none",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "upload": { "printer": "$walnut", "name": "b.gcode" }, "expect": { "result": { "path": "b.gcode" } }, "calls": ["upload walnut b.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode", "b.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "upload-only", "expect": { "result": { "decision": "uploaded-only" } } },
+        { "set": { "walnut": { "state": "printing", "filename": "other.gcode" } } },
+        { "request": { "op": "queue.add", "params": { "printer": "$walnut", "paths": ["b.gcode"] } }, "expect": { "error": "not-allowed" } }
+      ]
+    },
+    {
+      "name": "several plates: the rest are queued only while printing, each approval once",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "upload": { "printer": "$walnut", "name": "b.gcode" }, "expect": { "result": { "path": "b.gcode" } }, "calls": ["upload walnut b.gcode"] },
+        { "upload": { "printer": "$walnut", "name": "c.gcode" }, "expect": { "result": { "path": "c.gcode" } }, "calls": ["upload walnut c.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode", "b.gcode", "c.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "print", "expect": { "result": { "decision": "started", "startedPath": "a.gcode" } }, "calls": ["start walnut a.gcode"] },
+        { "request": { "op": "queue.add", "params": { "printer": "$walnut", "paths": ["b.gcode"] } }, "expect": { "result": { "queued": false } } },
+        { "set": { "walnut": { "state": "printing", "filename": "a.gcode" } } },
+        { "request": { "op": "queue.add", "params": { "printer": "$walnut", "paths": ["b.gcode", "c.gcode"] } }, "expect": { "result": { "queued": true } }, "calls": ["queue walnut b.gcode,c.gcode"] },
+        { "request": { "op": "queue.add", "params": { "printer": "$walnut", "paths": ["b.gcode"] } }, "expect": { "error": "not-allowed" } }
+      ]
+    },
+    {
+      "name": "queue.add of a path only uploaded, never approved",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "set": { "walnut": { "state": "printing", "filename": "other.gcode" } } },
+        { "request": { "op": "queue.add", "params": { "printer": "$walnut", "paths": ["a.gcode"] } }, "expect": { "error": "not-allowed" } }
+      ]
+    },
+    {
+      "name": "queue.add more than 30 minutes after the approval",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "upload": { "printer": "$walnut", "name": "b.gcode" }, "expect": { "result": { "path": "b.gcode" } }, "calls": ["upload walnut b.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode", "b.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "print", "expect": { "result": { "decision": "started" } }, "calls": ["start walnut a.gcode"] },
+        { "set": { "walnut": { "state": "printing", "filename": "a.gcode" } } },
+        { "advance": 1800001 },
+        { "request": { "op": "queue.add", "params": { "printer": "$walnut", "paths": ["b.gcode"] } }, "expect": { "error": "not-allowed" } }
+      ]
+    },
+    {
+      "name": "print.cancel: a foreign job never, our job only while it prints",
+      "selected": "walnut",
+      "steps": [
+        { "set": { "walnut": { "state": "printing", "filename": "someone-else.gcode" } } },
+        { "request": { "op": "print.cancel", "params": { "printer": "$walnut", "path": "someone-else.gcode" } }, "expect": { "error": "not-allowed" } },
+        { "set": { "walnut": { "state": "standby", "filename": "" } } },
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "print", "expect": { "result": { "decision": "started" } }, "calls": ["start walnut a.gcode"] },
+        { "set": { "walnut": { "state": "printing", "filename": "other.gcode" } } },
+        { "request": { "op": "print.cancel", "params": { "printer": "$walnut", "path": "a.gcode" } }, "expect": { "result": { "cancelled": false } } },
+        { "set": { "walnut": { "state": "printing", "filename": "a.gcode" } } },
+        { "request": { "op": "print.cancel", "params": { "printer": "$walnut", "path": "a.gcode" } }, "expect": { "result": { "cancelled": true } }, "calls": ["cancel walnut"] }
+      ]
+    },
+    {
+      "name": "a printer shared to watch only never receives a file",
+      "selected": "walnut",
+      "steps": [
+        { "set": { "walnut": { "role": "viewer" } } },
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "error": "not-allowed" } },
+        { "request": { "op": "moonraker.read", "params": { "printer": "$walnut", "method": "server.info" } }, "expect": { "result": {} } }
+      ]
+    },
+    {
+      "name": "an offline printer",
+      "selected": "walnut",
+      "steps": [
+        { "set": { "walnut": { "online": false } } },
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "error": "offline" } }
+      ]
+    },
+    {
+      "name": "cancel ends an upload that is still sending",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "during": { "cancel": true }, "expect": { "error": "cancelled" }, "calls": ["upload walnut a.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "expect": { "error": "not-allowed" } }
+      ]
+    },
+    {
+      "name": "a new session forgets the old one's uploads",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "reload": true },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "expect": { "error": "not-allowed" } }
+      ]
+    },
+    {
+      "name": "a capability the welcome did not grant",
+      "selected": "walnut",
+      "capabilities": ["printer", "status", "gcode", "moonraker.read"],
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "error": "not-allowed" } },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "expect": { "error": "not-allowed" } },
+        { "request": { "op": "printer.get", "params": {} }, "expect": { "result": {} } }
+      ]
+    },
+    {
+      "name": "reads outside the allowlist",
+      "selected": "walnut",
+      "steps": [
+        { "request": { "op": "moonraker.read", "params": { "printer": "$walnut", "method": "printer.gcode.script", "params": { "script": "SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=110" } } }, "expect": { "error": "not-allowed" } },
+        { "request": { "op": "moonraker.read", "params": { "printer": "$walnut", "method": "server.gcode_store", "params": { "count": 1000 } } }, "expect": { "error": "bad-request" } },
+        { "request": { "op": "moonraker.read", "params": { "printer": "$walnut", "method": "server.files.metadata", "params": { "filename": "../config/x.cfg" } } }, "expect": { "error": "bad-request" } }
+      ]
+    },
+    {
+      "name": "an upload never replaces a queued file or the file printing: it is stored under the next free name",
+      "selected": "walnut",
+      "steps": [
+        { "set": { "walnut": { "files": ["q.gcode", "p.gcode"], "queued": ["q.gcode"], "state": "printing", "filename": "p.gcode" } } },
+        { "upload": { "printer": "$walnut", "name": "q.gcode" }, "expect": { "result": { "path": "q_2.gcode" } }, "calls": ["upload walnut q_2.gcode"] },
+        { "upload": { "printer": "$walnut", "name": "p.gcode" }, "expect": { "result": { "path": "p_2.gcode" } }, "calls": ["upload walnut p_2.gcode"] }
+      ]
+    },
+    {
+      "name": "an upload never replaces a file this session did not write; one it wrote, it replaces",
+      "selected": "walnut",
+      "steps": [
+        { "set": { "walnut": { "files": ["a.gcode", "a_2.gcode"] } } },
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a_3.gcode" } }, "calls": ["upload walnut a_3.gcode"] },
+        { "upload": { "printer": "$walnut", "name": "a_3.gcode" }, "expect": { "result": { "path": "a_3.gcode" } }, "calls": ["upload walnut a_3.gcode"] },
+        { "reload": true },
+        { "upload": { "printer": "$walnut", "name": "a_3.gcode" }, "expect": { "result": { "path": "a_3_2.gcode" } }, "calls": ["upload walnut a_3_2.gcode"] }
+      ]
+    },
+    {
+      "name": "Plate is clear: asked after a job that put material on the plate, whatever the frame says",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "print", "asked": "not-needed", "expect": { "result": { "decision": "started" } }, "calls": ["start walnut a.gcode"] },
+        { "finish": "walnut", "filament_used": 1200 },
+        { "upload": { "printer": "$walnut", "name": "b.gcode" }, "expect": { "result": { "path": "b.gcode" } }, "calls": ["upload walnut b.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["b.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "print-unticked", "asked": "ask", "expect": { "result": { "decision": "uploaded-only" } } },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["b.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "print-ticked", "asked": "ask", "expect": { "result": { "decision": "started", "startedPath": "b.gcode" } }, "calls": ["start walnut b.gcode"] }
+      ]
+    },
+    {
+      "name": "Plate is clear: asked when the printer keeps no history, never for a queue entry",
+      "selected": "walnut",
+      "steps": [
+        { "set": { "walnut": { "history": false } } },
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "print-unticked", "asked": "ask", "expect": { "result": { "decision": "uploaded-only" } } },
+        { "set": { "walnut": { "state": "printing", "filename": "other.gcode" } } },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "queue", "plateClear": "ask" } }, "dialog": "print-unticked", "asked": "not-needed", "expect": { "result": { "decision": "queued" } }, "calls": ["queue walnut a.gcode"] }
+      ]
+    },
+    {
+      "name": "the printer becomes watch-only or goes offline while the dialog is open: nothing starts",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": { "set": { "walnut": { "role": "viewer" } } }, "expect": { "error": "not-allowed" } },
+        { "set": { "walnut": { "role": null } } },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": { "set": { "walnut": { "online": false } } }, "expect": { "error": "offline" } }
+      ]
+    },
+    {
+      "name": "the frame cancels while the dialog is open: it closes and nothing starts",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": { "cancel": true }, "expect": { "error": "cancelled" } },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "print", "expect": { "result": { "decision": "started" } }, "calls": ["start walnut a.gcode"] }
+      ]
+    },
+    {
+      "name": "print.cancel: the same name printed later from the host's own list is not the frame's",
+      "selected": "walnut",
+      "steps": [
+        { "upload": { "printer": "$walnut", "name": "a.gcode" }, "expect": { "result": { "path": "a.gcode" } }, "calls": ["upload walnut a.gcode"] },
+        { "request": { "op": "print.request", "params": { "printer": "$walnut", "paths": ["a.gcode"], "mode": "start", "plateClear": "not-needed" } }, "dialog": "print", "expect": { "result": { "decision": "started" } }, "calls": ["start walnut a.gcode"] },
+        { "finish": "walnut", "filament_used": 800 },
+        { "hostStart": { "printer": "walnut", "filename": "a.gcode" } },
+        { "request": { "op": "print.cancel", "params": { "printer": "$walnut", "path": "a.gcode" } }, "expect": { "result": { "cancelled": false } } },
+        { "request": { "op": "print.cancel", "params": { "printer": "$walnut", "path": "a.gcode" } }, "expect": { "error": "not-allowed" } }
+      ]
+    }
+  ]
+}

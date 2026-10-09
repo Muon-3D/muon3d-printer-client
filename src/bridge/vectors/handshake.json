@@ -1,0 +1,129 @@
+{
+  "$comment": [
+    "SPDX-License-Identifier: Apache-2.0. printer-bridge/1's handshake: which welcomes a client takes, and which hellos a host answers.",
+    "client: the client sent hello (nonce \"$nonce\", versions [1]) to the allowed origin \"https://host.example\". Each case delivers window messages in order; source is \"parent\" (window.parent) or \"other\" (another window, a nested frame), ports the number of ports transferred. expect: the index of the message the client takes (null: none; it goes on waiting).",
+    "host: the host framed \"https://slicer.example/embed.html\" (frame origin \"https://slicer.example\"). Each case delivers hellos in order; source is \"frame\" (the iframe's window) or \"other\". expect: how many welcomes the host sends, and the nonces they echo."
+  ],
+  "nonce": "00112233445566778899aabbccddeeff",
+  "client": [
+    {
+      "name": "a welcome from the parent, from the allowed origin, with the nonce and one port",
+      "messages": [{ "source": "parent", "origin": "https://host.example", "ports": 1, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "$nonce", "host": "fluidd", "hostVersion": "1.36.0", "capabilities": ["printer", "status", "gcode", "moonraker.read", "files.upload", "print"], "theme": "dark", "density": "touch" } }],
+      "expect": 0
+    },
+    {
+      "name": "a welcome from another origin",
+      "messages": [{ "source": "parent", "origin": "https://evil.example", "ports": 1, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "$nonce", "host": "fluidd", "hostVersion": "1", "capabilities": [], "theme": "light" } }],
+      "expect": null
+    },
+    {
+      "name": "a welcome from a subdomain of the allowed origin",
+      "messages": [{ "source": "parent", "origin": "https://evil.host.example", "ports": 1, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "$nonce", "host": "fluidd", "hostVersion": "1", "capabilities": [], "theme": "light" } }],
+      "expect": null
+    },
+    {
+      "name": "a welcome from the opaque origin",
+      "messages": [{ "source": "parent", "origin": "null", "ports": 1, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "$nonce", "host": "fluidd", "hostVersion": "1", "capabilities": [], "theme": "light" } }],
+      "expect": null
+    },
+    {
+      "name": "a welcome from another window of the allowed origin",
+      "messages": [{ "source": "other", "origin": "https://host.example", "ports": 1, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "$nonce", "host": "fluidd", "hostVersion": "1", "capabilities": [], "theme": "light" } }],
+      "expect": null
+    },
+    {
+      "name": "a welcome with another nonce",
+      "messages": [{ "source": "parent", "origin": "https://host.example", "ports": 1, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "ffeeddccbbaa99887766554433221100", "host": "fluidd", "hostVersion": "1", "capabilities": [], "theme": "light" } }],
+      "expect": null
+    },
+    {
+      "name": "a welcome with no port",
+      "messages": [{ "source": "parent", "origin": "https://host.example", "ports": 0, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "$nonce", "host": "fluidd", "hostVersion": "1", "capabilities": [], "theme": "light" } }],
+      "expect": null
+    },
+    {
+      "name": "a welcome with two ports",
+      "messages": [{ "source": "parent", "origin": "https://host.example", "ports": 2, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "$nonce", "host": "fluidd", "hostVersion": "1", "capabilities": [], "theme": "light" } }],
+      "expect": null
+    },
+    {
+      "name": "a welcome with a version the hello did not offer",
+      "messages": [{ "source": "parent", "origin": "https://host.example", "ports": 1, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 2, "nonce": "$nonce", "host": "fluidd", "hostVersion": "1", "capabilities": [], "theme": "light" } }],
+      "expect": null
+    },
+    {
+      "name": "a welcome with a theme that is not one",
+      "messages": [{ "source": "parent", "origin": "https://host.example", "ports": 1, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "$nonce", "host": "fluidd", "hostVersion": "1", "capabilities": [], "theme": "auto" } }],
+      "expect": null
+    },
+    {
+      "name": "the old protocol's ready",
+      "messages": [{ "source": "parent", "origin": "https://host.example", "ports": 0, "data": { "protocol": "muon3d-slicer/1", "type": "ready", "version": "1", "capabilities": [] } }],
+      "expect": null
+    },
+    {
+      "name": "two welcomes: the first wins",
+      "messages": [
+        { "source": "parent", "origin": "https://host.example", "ports": 1, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "$nonce", "host": "first", "hostVersion": "1", "capabilities": ["printer"], "theme": "light" } },
+        { "source": "parent", "origin": "https://host.example", "ports": 1, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "$nonce", "host": "second", "hostVersion": "1", "capabilities": ["printer", "print"], "theme": "dark" } }
+      ],
+      "expect": 0
+    },
+    {
+      "name": "a bad welcome, then a good one",
+      "messages": [
+        { "source": "other", "origin": "https://host.example", "ports": 1, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "$nonce", "host": "nested", "hostVersion": "1", "capabilities": [], "theme": "light" } },
+        { "source": "parent", "origin": "https://host.example", "ports": 1, "data": { "protocol": "printer-bridge", "type": "welcome", "version": 1, "nonce": "$nonce", "host": "fluidd", "hostVersion": "1", "capabilities": [], "theme": "light" } }
+      ],
+      "expect": 1
+    }
+  ],
+  "host": [
+    {
+      "name": "a hello from the frame",
+      "hellos": [{ "source": "frame", "origin": "https://slicer.example", "data": { "protocol": "printer-bridge", "type": "hello", "versions": [1], "app": "muon3d-slicer", "appVersion": "0.1.0", "nonce": "00112233445566778899aabbccddeeff" } }],
+      "expect": { "welcomes": 1, "nonces": ["00112233445566778899aabbccddeeff"] }
+    },
+    {
+      "name": "a hello from another window",
+      "hellos": [{ "source": "other", "origin": "https://slicer.example", "data": { "protocol": "printer-bridge", "type": "hello", "versions": [1], "app": "muon3d-slicer", "appVersion": "0.1.0", "nonce": "00112233445566778899aabbccddeeff" } }],
+      "expect": { "welcomes": 0, "nonces": [] }
+    },
+    {
+      "name": "a hello from the frame's window, from another origin (it navigated away)",
+      "hellos": [{ "source": "frame", "origin": "https://evil.example", "data": { "protocol": "printer-bridge", "type": "hello", "versions": [1], "app": "muon3d-slicer", "appVersion": "0.1.0", "nonce": "00112233445566778899aabbccddeeff" } }],
+      "expect": { "welcomes": 0, "nonces": [] }
+    },
+    {
+      "name": "the hello repeated every 500 ms is welcomed once",
+      "hellos": [
+        { "source": "frame", "origin": "https://slicer.example", "data": { "protocol": "printer-bridge", "type": "hello", "versions": [1], "app": "muon3d-slicer", "appVersion": "0.1.0", "nonce": "00112233445566778899aabbccddeeff" } },
+        { "source": "frame", "origin": "https://slicer.example", "data": { "protocol": "printer-bridge", "type": "hello", "versions": [1], "app": "muon3d-slicer", "appVersion": "0.1.0", "nonce": "00112233445566778899aabbccddeeff" } }
+      ],
+      "expect": { "welcomes": 1, "nonces": ["00112233445566778899aabbccddeeff"] }
+    },
+    {
+      "name": "a reload: a new nonce, a new session",
+      "hellos": [
+        { "source": "frame", "origin": "https://slicer.example", "data": { "protocol": "printer-bridge", "type": "hello", "versions": [1], "app": "muon3d-slicer", "appVersion": "0.1.0", "nonce": "00112233445566778899aabbccddeeff" } },
+        { "source": "frame", "origin": "https://slicer.example", "data": { "protocol": "printer-bridge", "type": "hello", "versions": [1], "app": "muon3d-slicer", "appVersion": "0.1.0", "nonce": "ffeeddccbbaa99887766554433221100" } }
+      ],
+      "expect": { "welcomes": 2, "nonces": ["00112233445566778899aabbccddeeff", "ffeeddccbbaa99887766554433221100"] }
+    },
+    {
+      "name": "a hello with no common version",
+      "hellos": [{ "source": "frame", "origin": "https://slicer.example", "data": { "protocol": "printer-bridge", "type": "hello", "versions": [2, 3], "app": "muon3d-slicer", "appVersion": "9", "nonce": "00112233445566778899aabbccddeeff" } }],
+      "expect": { "welcomes": 0, "nonces": [] }
+    },
+    {
+      "name": "a hello offering 1 and 2 gets version 1",
+      "hellos": [{ "source": "frame", "origin": "https://slicer.example", "data": { "protocol": "printer-bridge", "type": "hello", "versions": [1, 2], "app": "muon3d-slicer", "appVersion": "9", "nonce": "00112233445566778899aabbccddeeff" } }],
+      "expect": { "welcomes": 1, "nonces": ["00112233445566778899aabbccddeeff"], "version": 1 }
+    },
+    {
+      "name": "a hello with a short nonce",
+      "hellos": [{ "source": "frame", "origin": "https://slicer.example", "data": { "protocol": "printer-bridge", "type": "hello", "versions": [1], "app": "muon3d-slicer", "appVersion": "0.1.0", "nonce": "0011" } }],
+      "expect": { "welcomes": 0, "nonces": [] }
+    }
+  ]
+}

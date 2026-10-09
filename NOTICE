@@ -1,0 +1,9 @@
+@muon3d/printer-client
+Copyright 2026 Muon 3D Technologies Limited
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It was written for the Muon3D Slicer and contains no code from projects of other owners. The gateway's upload rules
+in src/multipart/check.ts follow Muon 3D's muon-link (Apache-2.0): crates/muon-link-device/src/upload.rs and the
+request framing in crates/muon-link-device/src/http1.rs, at commit 33f14dc, restated in TypeScript. The answers the
+parsers read are matched to the texts Moonraker and muon-link send.

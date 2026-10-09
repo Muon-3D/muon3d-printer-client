@@ -1,0 +1,15 @@
+{
+  "name": "@muon3d/printer-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "What every client of a Muon3D printer shares: the upload's multipart body and a checker of the gateway's upload rules, the error kinds and the parsers of printer, gateway, console and binding answers. No framework, no UI copy.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./multipart": "./src/multipart/index.ts",
+    "./errors": "./src/errors/index.ts"
+  },
+  "files": ["src", "!src/**/*.test.ts", "LICENSE", "NOTICE", "README.md"],
+  "sideEffects": false
+}
