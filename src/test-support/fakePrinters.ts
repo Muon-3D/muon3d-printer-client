@@ -187,6 +187,11 @@ export async function fakeMoonraker(options: { apiKey?: string; hostname?: strin
   const calls: FakeMoonraker['calls'] = [];
   const files: string[] = ['old/part.gcode'];
   const allowed = (key: string | null) => !options.apiKey || key === options.apiKey;
+  /** Tells every socket what changed, as Moonraker does. */
+  const notify = (status: Record<string, Record<string, unknown>>) => {
+    for (const [k, v] of Object.entries(status)) objects[k] = { ...objects[k], ...v };
+    for (const ws of base.sockets) ws.send(JSON.stringify({ jsonrpc: '2.0', method: 'notify_status_update', params: [status, 2] }));
+  };
   const base = await serve(
     (req, res, body, rec) => {
       const path = rec.path.split('?')[0];
@@ -198,14 +203,14 @@ export async function fakeMoonraker(options: { apiKey?: string; hostname?: strin
         const file = formFile(body, 'file');
         if (!file) return json(res, 400, { error: { message: 'No file' } });
         files.push(file.filename);
-        if (formField(body, 'print') === 'true') objects.print_stats = { ...objects.print_stats, state: 'printing', filename: file.filename };
+        if (formField(body, 'print') === 'true') notify({ print_stats: { state: 'printing', filename: file.filename, print_duration: 0 }, virtual_sdcard: { progress: 0 } });
         return json(res, 201, { result: { item: { path: file.filename, root: 'gcodes' }, print_started: formField(body, 'print') === 'true', action: 'create_file' } });
       }
       if (path.startsWith('/printer/print/') && req.method === 'POST') {
         const what = path.slice('/printer/print/'.length);
         const state = what === 'pause' ? 'paused' : what === 'resume' ? 'printing' : what === 'cancel' ? 'cancelled' : what === 'start' ? 'printing' : null;
         if (!state) return json(res, 404, { error: { message: 'Not found' } });
-        objects.print_stats = { ...objects.print_stats, state };
+        notify({ print_stats: { state } });
         return json(res, 200, { result: 'ok' });
       }
       json(res, 404, { error: { code: 404, message: 'Not Found' } });
@@ -229,10 +234,7 @@ export async function fakeMoonraker(options: { apiKey?: string; hostname?: strin
     objects,
     calls,
     files,
-    push(status) {
-      for (const [k, v] of Object.entries(status)) objects[k] = { ...objects[k], ...v };
-      for (const ws of base.sockets) ws.send(JSON.stringify({ jsonrpc: '2.0', method: 'notify_status_update', params: [status, 2] }));
-    },
+    push: notify,
   };
 }
 
@@ -397,9 +399,15 @@ export async function fakeElegoo(): Promise<FakeElegoo> {
         if (silent.has(cmd)) return;
         const data: Record<string, unknown> = { Ack: acks.get(cmd) ?? 0 };
         if (cmd === 258) data.FileList = [{ name: '/local/benchy.gcode', usedSize: 100, type: 1 }, { name: '/local/folder', type: 0 }];
-        if (cmd === 128) (status.PrintInfo as Record<string, unknown>).Status = 13;
-        if (cmd === 129) (status.PrintInfo as Record<string, unknown>).Status = 6;
+        const info = status.PrintInfo as Record<string, unknown>;
+        const next = data.Ack === 0 ? ({ 128: 13, 129: 6, 131: 13, 130: 0 } as Record<number, number>)[cmd] : undefined;
+        if (cmd === 128 && data.Ack === 0) Object.assign(info, { Filename: String(m.Data.Data.Filename ?? '').replace(/^\/local\//, ''), Progress: 0 });
         s.send(JSON.stringify({ Id: 'x', Data: { Cmd: cmd, Data: data, RequestID: m.Data.RequestID, MainboardID: ELEGOO_MAINBOARD, TimeStamp: 1 }, Topic: `sdcp/response/${ELEGOO_MAINBOARD}` }));
+        if (next !== undefined) {
+          info.Status = next;
+          status.CurrentStatus = [next === 0 ? 0 : 1];
+          s.send(statusMessage());
+        }
       });
       if (ws) base.sockets.add(ws);
     },
