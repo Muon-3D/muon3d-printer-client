@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.6.0
+
+Printers of other kinds, reached directly on the local network, and their credentials kept in this browser.
+
+### Added
+
+- **`brands/`**: one adapter per kind with one shape (`BrandAdapter`), each its own entry point:
+  `createMoonrakerAdapter` (Klipper through Moonraker: the WebSocket's identify and subscribe, HTTP commands, upload to
+  the gcodes root with start), `createOctoPrintAdapter` (the job and printer read every 3 s, upload with select and
+  print, `requestOctoPrintKey` through the Application Keys plugin), `createCrealityAdapter` (the stock firmware's
+  WebSocket on port 9999: telemetry, heartbeat, pause, resume, stop) and `createElegooAdapter` (SDCP v3 on port 3030:
+  status, files, start a stored file, pause, resume, stop, each command matched to its answer). A probe per kind.
+  `BRANDS`, `BRAND_KINDS`, `brandSteps` and `loadBrand` describe and load the kinds without loading an adapter.
+  `lanAddress`, `hostWithPort`, `isLanUrl` and `browserReachesLan` keep a page to the local network.
+- **`secrets/`**: `createSecretStore`, `idbSecretBackend` and `memorySecretBackend`.
+- `package.json` exports `./brands`, `./brands/moonraker`, `./brands/octoprint`, `./brands/creality`, `./brands/elegoo`
+  and `./secrets`; the root entry point re-exports `brands/` (not the adapters) and `secrets/`.
+
+### Sizes
+
+Each entry point bundled on its own (rolldown, minified, gzip): `brands` 1.8 KB, `brands/moonraker` 3.2 KB,
+`brands/octoprint` 3.0 KB, `brands/creality` 2.2 KB, `brands/elegoo` 3.0 KB, `secrets` 1.2 KB. Through `loadBrand`, the
+code the adapters share loads once (2.1 KB) and each kind adds 0.9 to 1.7 KB.
+
 ## 0.5.0
 
 A framework-free connectivity core for every Muon3D client (the slicer, Muon3D Control, Design), in five new entry

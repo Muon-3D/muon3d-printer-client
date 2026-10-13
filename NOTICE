@@ -7,6 +7,9 @@ It was written by Muon 3D for the Muon3D Slicer and Muon3D Fluidd, and contains 
 Files that name Muon3D Fluidd in their header were adapted from modules Muon 3D wrote for its fork of Fluidd (GPL-3.0);
 those modules derive from no upstream Fluidd code, and Muon 3D publishes them here under Apache-2.0.
 
+The adapters in src/brands/ restate what Moonraker's, OctoPrint's and Elegoo's own published documentation (SDCP v3)
+say their printers send and accept, and what Creality's stock firmware sends; they contain no code of those projects.
+
 The gateway's upload rules in src/multipart/check.ts follow Muon 3D's muon-link (Apache-2.0):
 crates/muon-link-device/src/upload.rs and the request framing in crates/muon-link-device/src/http1.rs, at commit
 33f14dc, restated in TypeScript. The answers the parsers read are matched to the texts Moonraker and muon-link send.
