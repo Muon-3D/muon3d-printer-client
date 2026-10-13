@@ -6,8 +6,9 @@
 // in the frame, with both sides and its conformance vectors (bridge/); the relay key's endpoint proof for the account
 // service (proof/); the status words, the one-entry-per-printer directory and the page slugs Muon3D Control uses
 // (printers/); the local network (lan/); the account service, central sign-in and the session (console/); a printer
-// through the relay (relay/); and the checks before a send (check/). It holds no UI and no framework code, and imports
-// nothing outside itself.
+// through the relay (relay/); the checks before a send (check/); printers of other kinds on the local network, whose
+// adapters load one kind at a time (brands/); and their credentials, encrypted in this browser (secrets/). It holds no
+// UI and no framework code, and imports nothing outside itself.
 export * from './multipart/index.ts';
 export * from './errors/index.ts';
 export * from './bridge/index.ts';
@@ -17,3 +18,5 @@ export * from './lan/index.ts';
 export * from './console/index.ts';
 export * from './relay/index.ts';
 export * from './check/index.ts';
+export * from './brands/index.ts';
+export * from './secrets/index.ts';
