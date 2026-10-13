@@ -8,7 +8,9 @@ Files that name Muon3D Fluidd in their header were adapted from modules Muon 3D 
 those modules derive from no upstream Fluidd code, and Muon 3D publishes them here under Apache-2.0.
 
 The adapters in src/brands/ restate what Moonraker's, OctoPrint's and Elegoo's own published documentation (SDCP v3)
-say their printers send and accept, and what Creality's stock firmware sends; they contain no code of those projects.
+say their printers send and accept (Moonraker's webcam list and job queue among them), and what Creality's stock
+firmware sends; they contain no code of those projects. src/camera/ reads JPEG pictures as the JPEG standard (ITU-T
+T.81) lays them out, and contains no code of mjpg-streamer or any other camera server.
 
 The gateway's upload rules in src/multipart/check.ts follow Muon 3D's muon-link (Apache-2.0):
 crates/muon-link-device/src/upload.rs and the request framing in crates/muon-link-device/src/http1.rs, at commit

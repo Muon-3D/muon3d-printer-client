@@ -5,14 +5,38 @@
 // Elegoo's SDCP v3 (the Centauri Carbon) on its WebSocket at port 3030 (or the port typed with its address),
 // `/websocket`. The printer pushes its status and attributes; a request is an envelope with a command number, a
 // request id and the mainboard's id, which the printer tells in everything it sends (0 status, 1 attributes, 128 start
-// a stored file, 129 pause, 130 stop, 131 continue, 258 list files). An answer carries the request's id and an Ack (0: done). SDCP's file upload is not
-// open to a page on another origin, so a print starts from a file already on the printer.
+// a stored file, 129 pause, 130 stop, 131 continue, 258 list files, 386 turn the camera's stream on). An answer
+// carries the request's id and an Ack (0: done). SDCP's file upload is not open to a page on another origin, so a print
+// starts from a file already on the printer. Its camera: 386 answers the stream's address (VideoUrl), an MJPEG stream on
+// the printer itself (port 3031).
 import { fail } from '../errors/failure.ts';
 import { printerError } from '../errors/kinds.ts';
-import { brandEnv, emptyStatus, fraction, keepSocket, parseJson, record, socketAnswer, StatusHub, temp, text, withPort } from './live.ts';
-import type { BrandAdapter, BrandCapabilities, BrandEnv, BrandFile, BrandProbe, BrandStatus, BrandTarget } from './types.ts';
+import { bareHost, brandEnv, emptyStatus, fraction, keepSocket, parseJson, record, socketAnswer, StatusHub, temp, text, withPort } from './live.ts';
+import type { BrandAdapter, BrandCamera, BrandCapabilities, BrandEnv, BrandFile, BrandProbe, BrandStatus, BrandTarget } from './types.ts';
 
-export const ELEGOO_CAPABILITIES: BrandCapabilities = { upload: false, startStored: true, listFiles: true, pauseResume: true, stop: true };
+export const ELEGOO_CAPABILITIES: BrandCapabilities = { upload: false, startStored: true, listFiles: true, pauseResume: true, stop: true, camera: true, queue: false };
+
+/** The command that turns the camera's stream on, and answers its address. */
+const CAMERA_CMD = 386;
+
+/**
+ * The camera at the address SDCP's 386 answered (`VideoUrl`, "192.168.1.60:3031/video" or with its scheme), for a
+ * printer the page reaches at `host`. The printer names itself by its IP address; the camera is on the same printer,
+ * so it is reached by the name the page uses for the printer, on the camera's own port.
+ */
+export function elegooCameras(videoUrl: unknown, host: string): BrandCamera[] {
+  const raw = text(videoUrl);
+  if (!raw) return [];
+  let url: URL;
+  try {
+    url = new URL(raw.includes('://') ? raw : `http://${raw}`);
+  } catch {
+    return [];
+  }
+  if (url.protocol !== 'http:') return [];
+  url.hostname = bareHost(host);
+  return [{ name: 'Camera', kind: 'mjpeg', url: url.href, pageUrl: url.href, flipH: false, flipV: false, rotation: 0 }];
+}
 
 /** SDCP's own port. */
 export const ELEGOO_PORT = 3030;
@@ -79,7 +103,8 @@ export function createElegooAdapter(target: BrandTarget, env: Partial<BrandEnv> 
     pending.delete(entry[0]);
     e.clearTimeout(entry[1].timer);
     const ack = Number(inner.Ack ?? outer.Ack ?? 0);
-    if (ack === 0) entry[1].resolve(inner);
+    // The camera's answer is read whatever its Ack (1: as many viewers as it allows, 2: no camera).
+    if (ack === 0 || cmd === CAMERA_CMD) entry[1].resolve(inner);
     else entry[1].reject(fail(printerError('printer', `The printer refused command ${cmd} (Ack ${ack})`, { detail: ack === 2 ? 'File not found' : ack === 1 ? 'The printer is busy' : `Ack ${ack}` })));
   };
   const hub = new StatusHub((h) => {
@@ -140,6 +165,13 @@ export function createElegooAdapter(target: BrandTarget, env: Partial<BrandEnv> 
     },
     async startFile(path: string) {
       await command(128, { Filename: path.startsWith('/local/') ? path : `/local/${path.replace(/^\/+/, '')}`, StartLayer: 0 });
+    },
+    async cameras(): Promise<BrandCamera[]> {
+      const answer = await command(CAMERA_CMD, { Enable: 1 });
+      const ack = Number(answer.Ack ?? 0);
+      if (ack === 2) return [];
+      if (ack !== 0) throw fail(printerError('busy', ack === 1 ? 'The camera has as many viewers as it allows' : 'The camera did not start', { detail: `Ack ${ack}` }));
+      return elegooCameras(answer.VideoUrl, target.host);
     },
     close: () => hub.close(),
   };

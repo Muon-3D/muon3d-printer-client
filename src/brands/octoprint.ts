@@ -6,11 +6,30 @@
 // on, and every request carries an API key (X-Api-Key). Status is read every 3 s while anyone listens (the job and the
 // printer); a printer OctoPrint is not connected to reads `error`. Uploads go to OctoPrint's local storage and,
 // asked to, are selected and started at once. A key can be asked of OctoPrint itself (its Application Keys plugin):
-// the person approves the request in OctoPrint, and the page polls for the answer.
-import { askJson, brandEnv, emptyStatus, fraction, httpUrl, record, seconds, StatusHub, temp, text } from './live.ts';
-import type { BrandAdapter, BrandCapabilities, BrandEnv, BrandFile, BrandProbe, BrandStatus, BrandTarget, BrandUpload } from './types.ts';
+// the person approves the request in OctoPrint, and the page polls for the answer. Its camera is the one in its
+// settings (`/api/settings` webcam: the stream, else the snapshot, relative to OctoPrint's own address).
+import { askJson, brandEnv, cameraUrl, emptyStatus, fraction, httpUrl, record, seconds, StatusHub, temp, text } from './live.ts';
+import type { BrandAdapter, BrandCamera, BrandCapabilities, BrandEnv, BrandFile, BrandProbe, BrandStatus, BrandTarget, BrandUpload } from './types.ts';
 
-export const OCTOPRINT_CAPABILITIES: BrandCapabilities = { upload: true, startStored: true, listFiles: true, pauseResume: true, stop: true };
+export const OCTOPRINT_CAPABILITIES: BrandCapabilities = { upload: true, startStored: true, listFiles: true, pauseResume: true, stop: true, camera: true, queue: false };
+
+/**
+ * The camera in OctoPrint's settings (`webcam`), for OctoPrint at `host`; none when it is turned off or has no address.
+ * A stream ending in .m3u8 or naming WebRTC is not MJPEG: it is offered to open, not drawn. `rotate90` turns it a
+ * quarter anticlockwise.
+ */
+export function octoprintCameras(settings: unknown, host: string): BrandCamera[] {
+  const webcam = record(record(settings).webcam);
+  if (webcam.webcamEnabled === false) return [];
+  const base = `http://${host}`;
+  const stream = cameraUrl(webcam.streamUrl, base);
+  const snapshot = cameraUrl(webcam.snapshotUrl, base);
+  const pageUrl = stream ?? snapshot;
+  if (!pageUrl) return [];
+  const notMjpeg = stream !== null && /\.m3u8(?:$|\?)|webrtc/i.test(stream);
+  const kind = stream && !notMjpeg ? 'mjpeg' : snapshot ? 'snapshot' : 'other';
+  return [{ name: 'Camera', kind, url: kind === 'mjpeg' ? stream : kind === 'snapshot' ? snapshot : null, pageUrl, flipH: webcam.flipH === true, flipV: webcam.flipV === true, rotation: webcam.rotate90 === true ? 270 : 0 }];
+}
 
 /** How often the status is read while anyone listens. */
 export const OCTOPRINT_POLL_MS = 3000;
@@ -105,6 +124,9 @@ export function createOctoPrintAdapter(target: BrandTarget, env: Partial<BrandEn
     },
     async startFile(path: string) {
       await askJson(e, url(`/api/files/local/${encodePath(path)}`), { method: 'POST', body: { command: 'select', print: true }, apiKey: key });
+    },
+    async cameras(): Promise<BrandCamera[]> {
+      return octoprintCameras(await askJson(e, url('/api/settings'), { apiKey: key }), target.host);
     },
     close: () => hub.close(),
   };

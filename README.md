@@ -61,7 +61,7 @@ Each folder is its own entry point (`@muon3d/printer-client/<folder>`), so a cli
   Creality's stock firmware (K1, K2, Hi; its WebSocket on port 9999) and Elegoo's SDCP (the Centauri Carbon; its
   WebSocket on port 3030). Each kind is an adapter with the same shape (`BrandAdapter`: `status()`, `subscribe`, which
   opens the connection for the first listener and closes it after the last, `pause`, `resume`, `stop`, and where the
-  kind allows it `upload` (with start), `listFiles` and `startFile`), each its own entry point
+  kind allows it `upload` (with start), `listFiles`, `startFile`, `cameras()` and Klipper's `queue`), each its own entry point
   (`/brands/moonraker`, `/brands/octoprint`, `/brands/creality`, `/brands/elegoo`) or loaded one at a time with
   `loadBrand(kind)`. Each has a probe for an address (`found` with the printer's name, model and firmware, or why not:
   `no-answer`, `needs-key`, `wrong-key`, `not-this-kind`). `BRANDS` says what each kind asks for and can do from a
@@ -75,14 +75,24 @@ Each folder is its own entry point (`@muon3d/printer-client/<folder>`), so a cli
   `https:` URL too, and `ws:` to `wss:`, `http:` and `https:`. Name local-network suffixes instead (`http://*.local:*`,
   `ws://*.local:*`), and reach printers by those names. What a page can do with each kind:
 
-  | Kind | Status | Pause, resume, stop | Upload and start | Start a stored file | Set-up on the printer |
-  |---|---|---|---|---|---|
-  | Klipper (Moonraker) | yes | yes | yes | yes | the page's origin in `[authorization] cors_domains`; an API key if it asks |
-  | OctoPrint | yes | yes | yes | yes | Settings › API › Allow Cross Origin Resource Sharing; an API key |
-  | Creality K1, K2, Hi | yes | yes | no | no | none |
-  | Elegoo Centauri | yes | yes | no | yes | none |
+  | Kind | Status | Pause, resume, stop | Upload and start | Start a stored file | Camera | Job queue | Set-up on the printer |
+  |---|---|---|---|---|---|---|---|
+  | Klipper (Moonraker) | yes | yes | yes | yes | its webcam list | yes, with `[job_queue]` | the page's origin in `[authorization] cors_domains`; an API key if it asks |
+  | OctoPrint | yes | yes | yes | yes | its webcam settings | no | Settings › API › Allow Cross Origin Resource Sharing; an API key |
+  | Creality K1, K2, Hi | yes | yes | no | no | a K1's, on port 8080 | no | none |
+  | Elegoo Centauri | yes | yes | no | yes | SDCP's 386 | no | none |
 
-  Creality's firmware and SDCP publish no upload a page on another origin can use.
+  Creality's firmware and SDCP publish no upload a page on another origin can use. Creality's protocol names no
+  camera: a K1 serves MJPEG on port 8080, so that is offered for a K1; a K2's or a Hi's WebRTC is not. Klipper's
+  queue (`BrandQueueControl`: add files already on the printer, remove, start, pause) arrives with the status
+  (`status.queue`: its state and jobs; null when the printer has no `[job_queue]`).
+- **`camera/`: a printer's camera in a page.** `watchCamera(camera, { fetch, onFrame, onTrouble })` reads a camera's
+  JPEG pictures with fetch, an MJPEG stream's as they come (at most one per `frameMs`) or a snapshot every
+  `snapshotMs`, and hands each over as a Blob for a blob: image; `jpegFrames()` is the reader underneath (it skips the
+  stream's framing, and a thumbnail's end marker inside a segment). A cross-origin-isolated page cannot show an
+  `<img>` pointing at a printer (COEP), and an HTTPS page has Chrome ask for a plain-HTTP picture over HTTPS; fetch
+  can say the request is local (lanFetch), but the camera must let the page read it (CORS), as mjpg-streamer does.
+  When it does not, the watch says `unreachable`; a page then offers the camera's own address to open.
 - **`secrets/`: a printer's credentials in this browser.** `createSecretStore({ backend })` keeps an API key or a
   password, remembered (encrypted with AES-GCM under a non-extractable key, both in IndexedDB: `idbSecretBackend`) or
   in the page's memory only; each is found by a random reference, and forgetting the last remembered one deletes the
@@ -171,8 +181,8 @@ if (isPrinterError(stored)) throw stored;
 
 The sources are TypeScript with only erasable syntax, imported with their `.ts` extensions: `@muon3d/printer-client`
 (everything), and one entry point per folder: `/printers`, `/lan`, `/console`, `/relay`, `/check`, `/multipart`,
-`/errors`, `/brands` (and one per kind: `/brands/moonraker`, `/brands/octoprint`, `/brands/creality`, `/brands/elegoo`)
-and `/secrets`. A bundler that compiles
+`/errors`, `/brands` (and one per kind: `/brands/moonraker`, `/brands/octoprint`, `/brands/creality`, `/brands/elegoo`),
+`/secrets` and `/camera`. A bundler that compiles
 TypeScript (Vite, esbuild, webpack with a TypeScript loader) reads them as they are. Node 22.18 or newer runs them
 directly, but not from inside `node_modules` (Node does not strip types there).
 

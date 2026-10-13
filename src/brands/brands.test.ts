@@ -36,10 +36,10 @@ describe('Klipper through Moonraker', () => {
     cleanups.push(() => printer.close());
     const adapter = createMoonrakerAdapter({ host: printer.host, apiKey: 'k-123' });
     const w = watch(adapter);
-    await until(() => w.last().state === 'ready', 'ready');
+    await until(() => w.last().state === 'ready' && printer.calls.length === 3, 'ready');
     assert.deepEqual(
       printer.calls.map((c) => c.method),
-      ['server.connection.identify', 'printer.objects.subscribe'],
+      ['server.connection.identify', 'printer.objects.subscribe', 'server.job_queue.status'],
     );
     assert.equal((printer.calls[0].params as { api_key: string }).api_key, 'k-123');
     assert.deepEqual(w.last().hotend, { now: 24.2, target: null });

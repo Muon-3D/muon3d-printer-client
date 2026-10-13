@@ -7,8 +7,8 @@
 // service (proof/); the status words, the one-entry-per-printer directory and the page slugs Muon3D Control uses
 // (printers/); the local network (lan/); the account service, central sign-in and the session (console/); a printer
 // through the relay (relay/); the checks before a send (check/); printers of other kinds on the local network, whose
-// adapters load one kind at a time (brands/); and their credentials, encrypted in this browser (secrets/). It holds no
-// UI and no framework code, and imports nothing outside itself.
+// adapters load one kind at a time (brands/); their credentials, encrypted in this browser (secrets/); and a printer's
+// camera read into a page (camera/). It holds no UI and no framework code, and imports nothing outside itself.
 export * from './multipart/index.ts';
 export * from './errors/index.ts';
 export * from './bridge/index.ts';
@@ -20,3 +20,4 @@ export * from './relay/index.ts';
 export * from './check/index.ts';
 export * from './brands/index.ts';
 export * from './secrets/index.ts';
+export * from './camera/index.ts';
