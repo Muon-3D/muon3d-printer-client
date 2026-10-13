@@ -1,15 +1,20 @@
 {
   "name": "@muon3d/printer-client",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "private": true,
-  "description": "What every client of a Muon3D printer shares: the upload's multipart body and a checker of the gateway's upload rules, the error kinds and the parsers of printer, gateway, console and binding answers. No framework, no UI copy.",
+  "description": "What every client of a Muon3D printer shares, without a framework: the status words, the printer directory and page slugs Muon3D Control uses; the local network checks; central sign-in, the account service and a refresh-safe session; a printer through the relay; the checks before a send; the upload body and the gateway rules it is checked against; the error kinds, their parsers and the plain words a person reads about each.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./printers": "./src/printers/index.ts",
+    "./lan": "./src/lan/index.ts",
+    "./console": "./src/console/index.ts",
+    "./relay": "./src/relay/index.ts",
+    "./check": "./src/check/index.ts",
     "./multipart": "./src/multipart/index.ts",
     "./errors": "./src/errors/index.ts"
   },
-  "files": ["src", "!src/**/*.test.ts", "LICENSE", "NOTICE", "README.md"],
+  "files": ["src", "!src/**/*.test.ts", "LICENSE", "NOTICE", "README.md", "CHANGELOG.md"],
   "sideEffects": false
 }
