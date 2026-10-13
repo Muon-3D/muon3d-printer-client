@@ -9,12 +9,16 @@ export { browserReachesLan, hostWithPort, isLanUrl, lanAddress, type LanAddress 
 export { BRAND_KINDS, brandSteps, BRANDS, isBrandKind, loadBrand, type BrandInfo, type BrandModule } from './kinds.ts';
 export type {
   BrandAdapter,
+  BrandCamera,
   BrandCapabilities,
   BrandEnv,
   BrandFile,
   BrandKey,
   BrandKind,
   BrandProbe,
+  BrandQueue,
+  BrandQueueControl,
+  BrandQueueJob,
   BrandState,
   BrandStatus,
   BrandTarget,
