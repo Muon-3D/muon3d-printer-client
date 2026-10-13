@@ -209,11 +209,11 @@ describe("Creality's stock firmware", () => {
     await assert.rejects(adapter.pause(), (err: { error?: { kind?: string } }) => err.error?.kind === 'offline');
   });
 
-  it('a probe reads its host name, model and firmware from the first telemetry; nothing there is no-answer', async () => {
+  it('a probe reads its host name and model from the first telemetry (its hardware versions are not a firmware); nothing there is no-answer', async () => {
     const printer = await fakeCreality();
     cleanups.push(() => printer.close());
     const found = await probeCreality({ host: printer.host });
-    assert.deepEqual(found, { found: true, name: 'K1C-2F3A', model: 'K1C', firmware: 'printer hw ver:;printer hw ver:CR4CU220812S11;DWIN hw ver:;' });
+    assert.deepEqual(found, { found: true, name: 'K1C-2F3A', model: 'K1C', firmware: null });
     assert.deepEqual(await probeCreality({ host: '127.0.0.1:1' }, { setTimeout: (cb) => setTimeout(cb, 50) }), { found: false, why: 'no-answer' });
   });
 });

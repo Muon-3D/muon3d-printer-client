@@ -82,7 +82,10 @@ export function createCrealityAdapter(target: BrandTarget, env: Partial<BrandEnv
   };
 }
 
-/** Whether Creality's firmware answers at `target.host`: its host name, model and firmware from the first telemetry. */
+/**
+ * Whether Creality's firmware answers at `target.host`: its host name and model from the first telemetry. No firmware
+ * version: the telemetry's `modelVersion` lists the boards' hardware versions, which are no use to a person.
+ */
 export async function probeCreality(target: BrandTarget, env: Partial<BrandEnv> = {}): Promise<BrandProbe> {
   const e = brandEnv(env);
   let answered = false;
@@ -100,5 +103,5 @@ export async function probeCreality(target: BrandTarget, env: Partial<BrandEnv> 
     },
   );
   if (!found) return { found: false, why: answered ? 'not-this-kind' : 'no-answer' };
-  return { found: true, name: text(found.hostname), model: text(found.model), firmware: text(found.modelVersion) };
+  return { found: true, name: text(found.hostname), model: text(found.model), firmware: null };
 }
