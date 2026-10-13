@@ -24,6 +24,8 @@ export const ERROR_KINDS = [
   'unsupported', // over the bridge: the host does not know the request
   'bad-request', // over the bridge: the request's parameters were refused
   'protocol', // an answer that is not what the protocol says
+  'chrome-only', // this browser does not let a page reach printers on the local network (Chromium does, once allowed)
+  'permission', // the local network permission is refused for this page (the browser's prompt, or a policy)
 ] as const;
 
 export type ErrorKind = (typeof ERROR_KINDS)[number];
@@ -77,11 +79,12 @@ export function needsRegrant(error: PrinterError): boolean {
 
 /**
  * Whether nothing should reconnect or retry by itself after this error: a refusal by the relay (other than one a new
- * grant answers), a session that has ended, an answer that broke the protocol.
+ * grant answers), a session that has ended, an answer that broke the protocol, and a browser that does not (or may
+ * not) reach the local network: only the person changes those, and a retry they ask for comes after.
  */
 export function isTerminal(error: PrinterError): boolean {
   if (error.kind === 'refused') return !needsRegrant(error);
-  return error.kind === 'signed-out' || error.kind === 'protocol';
+  return error.kind === 'signed-out' || error.kind === 'protocol' || error.kind === 'chrome-only' || error.kind === 'permission';
 }
 
 /** The longest `detail`, in characters. */
