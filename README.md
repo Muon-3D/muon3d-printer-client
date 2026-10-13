@@ -2,12 +2,68 @@
 
 The pieces that every client of a Muon3D printer shares, whatever its framework. The Muon3D Slicer uses them to send
 G-code to Muon printers, and Muon3D's Fluidd uses them when its **Slice** page hosts the slicer. The package holds no
-UI, no words a person reads and no framework code, has no dependencies, and imports nothing outside itself.
+UI and no framework code, has no dependencies, and imports nothing outside itself. The only words a person reads are
+the error messages in `errors/messages.ts` and the status words in `printers/status.ts`, so every client says the
+same thing about the same printer.
 
 Licence: Apache-2.0 (`LICENSE`, `NOTICE`). Copyright 2026 Muon 3D Technologies Limited.
 
 ## What it holds
 
+Each folder is its own entry point (`@muon3d/printer-client/<folder>`), so a client loads only what a page needs.
+
+- **`printers/`: the words, the list and the links Muon3D Control uses.** `status.ts` has the nine states a printer's
+  tile shows (`TILE_STATES`: printing, paused, ready, error, locked, connecting, unreachable, offline, new), the tone
+  of each (`tileTone`) and its word (`tileWords`, and `tileLabel` for "42%" while printing), and `PrinterHealth`, what
+  was read from a printer: `healthOfMoonraker({ connected, klippyState, printState, httpStatus })` reads it as Control
+  does (401 or 403 `locked`, a 5xx `error`, no answer `offline`, then Klipper's state, then the print's),
+  `accountHealth(online, read)` puts the account service's online flag first, and `tileOfHealth(health, context)`
+  gives the tile (a found printer not yet read is ready; an error that is the relay's way in failing is unreachable).
+  `groupSummary` writes a group's line ("1 printing · 2 ready"). `directory.ts` joins what a client knows into one
+  entry per printer (`printerDirectory({ account, saved, found })`): the EndpointId first, then an address, then the
+  exact display name, with a saved printer that moved, was saved twice or lost its address to another printer handled
+  as Control handles them, and `savedUpdates` for the saved entries to bring up to date. `slug.ts` makes the slug
+  Control makes for a printer's page (`slugForIdentity`, `slugForMdnsHost`, `slugForAccountPrinter`, `slugForAddress`,
+  `printerPath`), for an "Open in Control" link; `printerNameParts` splits "Boxwood · 367A" into the name and its
+  serial suffix.
+- **`lan/`: printers on this network, one address at a time.** `probe(host)` asks an address whether it is a Muon3D
+  printer (`/server/muon/identity`) and how it is (`printerHealth`), `probeAddress` tries what someone typed (a bare
+  name as typed, then with `.local`), and `foundPrinterOf` turns the answer into a directory entry. `lanFetch` declares
+  a request local on an https page (`targetAddressSpace: 'local'`, which Chromium's Local Network Access wants);
+  `pageCanReach` says whether the page may reach a plain-http printer at all, `pageBlocksPrinter` whether the browser,
+  not the printer, is in the way, and `printerPageUrl` gives the printer's own page as the way round.
+  `pageBlocksLanIpv4` (and `lanIpv4Block`) finds a page opened by a `.local` name that Chrome will not let reach any
+  IPv4 address; `localNetworkPermission()` reads the local network permission (`granted`, `denied`, `prompt`, or
+  `unknown` where the browser has none). There is no sweep of the network. Everything that touches the browser (fetch,
+  the location, timers, the clock, the Permissions API) comes from an optional `LanEnv`, so it can be tested.
+- **`console/`: the Muon3D account service.** `createConsoleApi({ origin, clientId })` speaks its API: `/token`, the
+  account, the relay key's endpoint proof, `/v1/printers`, a printer's access grant, the printers near this browser,
+  an assertion for another Muon3D service, and sign-out, each with a limit and every failure a PrinterError. Central
+  sign-in is a full-page round trip: `prepareSignIn` makes the PKCE S256 verifier (`pkce.ts`, written from RFC 7636),
+  the `state` and the `/authorize` URL (`prompt: 'none'` for a silent try), `storePendingSignIn` and
+  `takePendingSignIn` keep them in the tab's storage across the trip, `signInAnswerOf` and `readSignInAnswer` read what
+  came back, and `checkSignInAnswer` takes a code only for this tab's `state` and from the console asked (`iss`),
+  under either of its names: `sameConsole(a, b, CONSOLE_ALIASES)` treats control.muon3d.com and app.muon3d.com as one
+  console, and nothing else as it. `createSession` keeps the rotating refresh token and the newest access token
+  (`idbSessionStore` in IndexedDB, `memorySessionStore` in memory) and refreshes under a Web Lock without ever
+  presenting a refresh token twice: an outcome it cannot know discards the token instead. `consoleOriginOf`,
+  `relayHostsOf` and `relayUrlAllowed` read a client's settings strictly.
+- **`relay/`: a printer through the relay.** The relay binding (muon-link-web) is passed in, never imported.
+  `loadPinnedBinding(pin)` fetches its two files, checks their SHA-256 against the pin before anything runs, imports
+  the glue with the hash in its query and starts the wasm from the checked bytes. `createEndpointHolder` keeps this
+  browser's endpoint per relay, bound with its relay key. `createRelayPrinter(session)` gives `fetch(path, init)` and a
+  WebSocket-shaped `openWebSocket(path)` over a binding session, so code written for a printer on the network works
+  through the relay: the headers the binding frames are left out, and a body (a `FormData` too) is encoded once, so
+  its bytes and the boundary its type names agree. `createRelayTransport({ grant, dial, regrant })` holds one
+  printer's connection: dialled on the first request, dropped when a request fails, dialled again with a backoff, and
+  with a new grant after two failed dials.
+- **`check/`: the checks before a send.** `evaluateGates` says what a printer is offered for (Print while it is idle,
+  Queue while it prints or is paused, Upload only) and which gate holds what back: the keep-out scan's verdict, a
+  current slice, the setup it was sliced for, the person's role, the printer reachable and Klipper ready, its state,
+  the M1's plate and toolhead, a plate cleared after the last print (`plateClearNeed`, from the print history), and the
+  relay's size limit. `readGlance` and `applyUpdate` keep a printer's status from its subscription (`GLANCE_OBJECTS`).
+  `uploadNameFor` and `chooseUploadName` give the upload's name, renamed (`_2`, `_3`) rather than replacing a file
+  someone else put on the printer, or one that is queued or printing. No words: the client words the reasons.
 - **`multipart/`: the upload.** `buildUploadBody({ name, bytes, checksum })` writes the body of
   `POST /server/files/upload` once: exactly `root=gcodes`, `checksum` (the file's SHA-256, lowercase hex; the printer
   answers 422 when the file it wrote differs) and the file, never `path` and never `print` (a print is started by its
@@ -32,7 +88,12 @@ Licence: Apache-2.0 (`LICENSE`, `NOTICE`). Copyright 2026 Muon 3D Technologies L
   capacity, `lost` for an ordinary close such as a printer's restart, `unreachable`), `parseConsoleAnswer`,
   `parseConsoleFailure` and `parseConsolePrinter` (the account service: `signed-out`, `console`, and an access grant's
   `offline` and `unreachable`), and `parseBridgeError` (a bridge host's failure; the host is not trusted, so an
-  unknown kind is `protocol`). `needsRegrant(error)` and `isTerminal(error)` say what may be tried again.
+  unknown kind is `protocol`). `parseLanFailure` reads a local request's failure with what the page knows of the browser: `permission` when the
+  local network permission is refused, `chrome-only` in a browser that has none. `needsRegrant(error)` and
+  `isTerminal(error)` say what may be tried again. `PrinterFailure` carries a PrinterError through a throw (`fail`,
+  and `failureOf` to read it back). `explain(error, { printer, owner, lastSeen })` gives what a person reads: a title
+  (one sentence), a detail where it helps and at most one action (`{ id, label }`: Open in Control, Try again, Queue
+  it, Ask for access, Sign in, Open in Chrome, Reload), in plain British English, the same in every client.
 - **`bridge/`: `printer-bridge/1`, the slicer in a host's frame.** The protocol between a page that frames a printer
   client (the host, such as Fluidd's Slice page) and the client in the frame (the Muon3D Slicer's `embed.html`).
   `protocol.ts` holds the names, the limits (`LIMITS`) and the validators both sides run on everything they receive;
@@ -79,7 +140,8 @@ if (isPrinterError(stored)) throw stored;
 ## Using it
 
 The sources are TypeScript with only erasable syntax, imported with their `.ts` extensions: `@muon3d/printer-client`
-(everything), `@muon3d/printer-client/multipart` and `@muon3d/printer-client/errors`. A bundler that compiles
+(everything), and one entry point per folder: `/printers`, `/lan`, `/console`, `/relay`, `/check`, `/multipart` and
+`/errors`. A bundler that compiles
 TypeScript (Vite, esbuild, webpack with a TypeScript loader) reads them as they are. Node 22.18 or newer runs them
 directly, but not from inside `node_modules` (Node does not strip types there).
 
@@ -87,7 +149,7 @@ The package is not on the npm registry. Each release on GitHub has an `npm pack`
 release notes:
 
 ```sh
-npm install https://github.com/Muon-3D/muon3d-printer-client/releases/download/v0.1.0/muon3d-printer-client-0.1.0.tgz
+npm install https://github.com/Muon-3D/muon3d-printer-client/releases/download/v0.5.0/muon3d-printer-client-0.5.0.tgz
 ```
 
 ### In Fluidd
