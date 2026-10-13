@@ -70,7 +70,10 @@ Each folder is its own entry point (`@muon3d/printer-client/<folder>`), so a cli
   `lanAddress(input)` takes only the local network's addresses (private, link-local and loopback IPv4; unique-local,
   link-local and loopback IPv6; `localhost`, single labels and `.local`, `.lan`, `.home`, `.home.arpa`, `.internal`),
   so a page sends nothing to the internet through this path; `browserReachesLan(protocol, userAgent)` says whether the
-  browser lets an https page reach the network at all (Chromium only). What a page can do with each kind:
+  browser lets an https page reach the network at all (Chromium only). A page's own Content-Security-Policy cannot
+  name an address range, and must not list a bare `http:` or `ws:` for printers: CSP Level 3 matches `http:` to every
+  `https:` URL too, and `ws:` to `wss:`, `http:` and `https:`. Name local-network suffixes instead (`http://*.local:*`,
+  `ws://*.local:*`), and reach printers by those names. What a page can do with each kind:
 
   | Kind | Status | Pause, resume, stop | Upload and start | Start a stored file | Set-up on the printer |
   |---|---|---|---|---|---|
