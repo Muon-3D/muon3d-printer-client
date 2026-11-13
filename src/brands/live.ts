@@ -83,8 +83,30 @@ export const bareHost = (host: string): string => (host.startsWith('[') ? host.s
 /** `host:port`: the port typed with the host, else the kind's own. */
 export const withPort = (host: string, ownPort: number): string => (bareHost(host) === host ? `${host}:${ownPort}` : host);
 
+/**
+ * A camera's address from what a printer published: absolute, or relative to `base` (`http://<host>`, where the
+ * printer's web pages are). http and https only; null for anything else.
+ */
+export function cameraUrl(published: unknown, base: string): string | null {
+  const raw = typeof published === 'string' ? published.trim() : '';
+  if (!raw) return null;
+  try {
+    const url = new URL(raw, `${base}/`);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A rotation in degrees clockwise, to the nearest quarter turn (0 for anything that is not a number). */
+export function rotationOf(degrees: unknown): 0 | 90 | 180 | 270 {
+  const n = Number(degrees);
+  if (!Number.isFinite(n)) return 0;
+  return ((((Math.round(n / 90) * 90) % 360) + 360) % 360) as 0 | 90 | 180 | 270;
+}
+
 export interface JsonAsk {
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'DELETE';
   /** A JSON body, or a FormData. */
   body?: unknown;
   apiKey?: string | null;

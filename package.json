@@ -1,6 +1,6 @@
 {
   "name": "@muon3d/printer-client",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "What every client of a Muon3D printer shares, without a framework: the status words, the printer directory and page slugs Muon3D Control uses; the local network checks; central sign-in, the account service and a refresh-safe session; a printer through the relay; the checks before a send; the upload body and the gateway rules it is checked against; the error kinds, their parsers and the plain words a person reads about each; printers of other kinds on the local network (Klipper, OctoPrint, Creality, Elegoo), one adapter each, and their credentials, encrypted in this browser.",
   "license": "Apache-2.0",
@@ -19,7 +19,8 @@
     "./brands/octoprint": "./src/brands/octoprint.ts",
     "./brands/creality": "./src/brands/creality.ts",
     "./brands/elegoo": "./src/brands/elegoo.ts",
-    "./secrets": "./src/secrets/index.ts"
+    "./secrets": "./src/secrets/index.ts",
+    "./camera": "./src/camera/index.ts"
   },
   "files": [
     "src",

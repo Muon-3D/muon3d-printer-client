@@ -32,6 +32,8 @@ export interface BrandStatus {
   hotend: BrandTemp | null;
   bed: BrandTemp | null;
   chamber: BrandTemp | null;
+  /** Its job queue, for kinds with `queue`: null when the printer has none set up, absent until it is read. */
+  queue?: BrandQueue | null;
 }
 
 /** What a kind can do from a page. */
@@ -44,6 +46,59 @@ export interface BrandCapabilities {
   listFiles: boolean;
   pauseResume: boolean;
   stop: boolean;
+  /** Say where its camera is (cameras()). */
+  camera: boolean;
+  /** Keep a queue of jobs that start one after another (queue). */
+  queue: boolean;
+}
+
+/** A camera a printer publishes, as a page can show it. */
+export interface BrandCamera {
+  name: string;
+  /**
+   * How a page draws it: `mjpeg` reads the stream's pictures as they come, `snapshot` asks for one picture at a time.
+   * `other` (WebRTC, HLS and the like) is not drawn by a page here: open `pageUrl`.
+   */
+  kind: 'mjpeg' | 'snapshot' | 'other';
+  /** What to read for the picture (an absolute http URL); null for `other`. */
+  url: string | null;
+  /** The camera's own address, to open in a tab. */
+  pageUrl: string;
+  flipH: boolean;
+  flipV: boolean;
+  /** Clockwise, in degrees. */
+  rotation: 0 | 90 | 180 | 270;
+}
+
+/** A job waiting in a printer's queue. */
+export interface BrandQueueJob {
+  id: string;
+  /** The file, as the printer names it. */
+  filename: string;
+  /** When it was added (ms since 1970), or null. */
+  addedAt: number | null;
+}
+
+/** A printer's job queue (Moonraker's). */
+export interface BrandQueue {
+  /**
+   * - `ready`: the next job starts by itself when the printer is free.
+   * - `paused`: nothing starts by itself.
+   * - `loading`, `starting`: the next job is starting.
+   */
+  state: 'ready' | 'paused' | 'loading' | 'starting';
+  jobs: BrandQueueJob[];
+}
+
+/** What a page can do with a printer's queue (kinds with `queue`). */
+export interface BrandQueueControl {
+  /** Adds files already on the printer, in order, at the end. */
+  add(paths: string[]): Promise<void>;
+  remove(jobIds: string[]): Promise<void>;
+  /** Lets the queue start its next job (now, when the printer is free). */
+  start(): Promise<void>;
+  /** Stops the queue starting jobs by itself; a print under way carries on. */
+  pause(): Promise<void>;
 }
 
 /** What a printer may need from the person: an API key, required or optional, or nothing. */
@@ -84,6 +139,10 @@ export interface BrandAdapter {
   listFiles?(): Promise<BrandFile[]>;
   /** Starts a file already on the printer (kinds with `startStored`). */
   startFile?(path: string): Promise<void>;
+  /** The cameras it publishes (kinds with `camera`); none: an empty list. */
+  cameras?(): Promise<BrandCamera[]>;
+  /** Its job queue (kinds with `queue`); the queue itself arrives with the status. */
+  queue?: BrandQueueControl;
   /** Ends the connection and every timer; the adapter is not used again. */
   close(): void;
 }

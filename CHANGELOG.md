@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.0
+
+Cameras for each kind, and Klipper's job queue.
+
+### Added
+
+- **Cameras.** `cameras()` on each adapter: Moonraker's webcam list (`/server/webcams/list`; relative addresses are
+  the printer's web pages', not Moonraker's port), OctoPrint's webcam settings (`/api/settings`), a Creality K1's MJPEG
+  on port 8080 (the protocol names none), and Elegoo's stream from SDCP's 386 (`VideoUrl`, reached by the name the
+  page uses for the printer). `BrandCamera`: `mjpeg`, `snapshot`, or `other` (WebRTC, HLS: to open, not to draw).
+- **`camera/`**: `watchCamera` and `jpegFrames`, the pictures of an MJPEG stream or a snapshot read with fetch, for
+  a cross-origin-isolated page.
+- **Klipper's job queue**: `status.queue` (from `server.job_queue.status` and `notify_job_queue_changed`) and
+  `adapter.queue` (add, remove, start, pause). `BrandCapabilities` gains `camera` and `queue`.
+- The fakes serve a camera each (with or without CORS) and Moonraker's job queue.
+
+### Sizes
+
+Each entry point bundled on its own (rolldown, minified, gzip): `brands/moonraker` 4.0 KB, `brands/octoprint` 3.3 KB,
+`brands/creality` 2.4 KB, `brands/elegoo` 3.2 KB, `camera` 1.1 KB. Through `loadBrand`, the shared code is 2.2 KB and
+each kind 1.0 to 2.3 KB.
+
 ## 0.6.0
 
 Printers of other kinds, reached directly on the local network, and their credentials kept in this browser.

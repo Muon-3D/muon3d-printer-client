@@ -2,6 +2,8 @@
 // Copyright 2026 Muon 3D Technologies Limited
 // Fake printers for the brand adapters' tests, on 127.0.0.1: a Moonraker, an OctoPrint, Creality's stock firmware
 // socket and Elegoo's SDCP socket, each answering as the real one is documented to, and recording what it was asked.
+// The cameras answer as mjpg-streamer does (a multipart stream of FAKE_JPEG, or one picture), with or without CORS;
+// Moonraker's job queue as its [job_queue] does.
 // Not published (package.json `files`); Node only.
 import { createHash } from 'node:crypto';
 import http from 'node:http';
@@ -129,6 +131,7 @@ async function serve(handler: (req: http.IncomingMessage, res: http.ServerRespon
       // Every fake lets any page in (the CORS a person turns on): a test of the CORS refusal sets cors false itself.
       res.setHeader('Access-Control-Allow-Origin', origin ?? '*');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Api-Key');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
       if (req.method === 'OPTIONS') {
         res.writeHead(204).end();
         return;
@@ -164,6 +167,43 @@ const json = (res: http.ServerResponse, status: number, value: unknown) => {
   res.writeHead(status).end(JSON.stringify(value));
 };
 
+// ---- Cameras ----------------------------------------------------------------------------------------------------
+
+/** A 64 x 48 JPEG (with an ICC profile segment), the fake cameras' picture. */
+export const FAKE_JPEG = Buffer.from(
+  '/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAAwAEADASIAAhEBAxEB/8QAGgAAAwEBAQEAAAAAAAAAAAAAAgMEBgEFAP/EABwQAQEAAQUBAAAAAAAAAAAAAAIAAQQFMaLRA//EABkBAAMAAwAAAAAAAAAAAAAAAAECAwAEBf/EABkRAQEAAwEAAAAAAAAAAAAAAAABAhEhA//aAAwDAQACEQMRAD8A8wGoBhBng1nLkEDUAwgzwYHkEDUAwgzwYKSCBqAYQZ4MDyMgDUAwg1AMyEjoNt8bJtuONN3XtjgbZ43fQZ4+/ReS5NjymPdvsbPt+ONP3XtnQbSY3TRZ4+3ReXggwhs5OadBqAYQagGwJGQBngwg1AMyEggZ4MINQDA8ggZ4MINQDBSQQM8GEGoBgeR//9k=',
+  'base64',
+);
+
+/** The boundary of the fake MJPEG stream. */
+const BOUNDARY = 'muonframe';
+
+/**
+ * Answers a camera request as mjpg-streamer does: `stream`, a multipart stream of FAKE_JPEG (one every 100 ms until
+ * the client leaves); `snapshot`, one picture. Without `cors` there is no Access-Control-Allow-Origin: a page cannot
+ * read it.
+ */
+export function answerCamera(res: http.ServerResponse, what: 'stream' | 'snapshot', cors: boolean): void {
+  if (!cors) res.removeHeader('Access-Control-Allow-Origin');
+  res.setHeader('Cache-Control', 'no-store');
+  if (what === 'snapshot') {
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.writeHead(200).end(FAKE_JPEG);
+    return;
+  }
+  res.writeHead(200, { 'Content-Type': `multipart/x-mixed-replace;boundary=${BOUNDARY}` });
+  const part = () => res.write(Buffer.concat([Buffer.from(`--${BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${FAKE_JPEG.length}\r\n\r\n`, 'latin1'), FAKE_JPEG, Buffer.from('\r\n', 'latin1')]));
+  part();
+  const timer = setInterval(part, 100);
+  res.on('close', () => clearInterval(timer));
+}
+
+/** The camera mjpg-streamer's way: `?action=stream` or `?action=snapshot`; null for anything else. */
+const cameraAction = (query: string): 'stream' | 'snapshot' | null => {
+  const action = new URLSearchParams(query).get('action');
+  return action === 'stream' || action === 'snapshot' ? action : null;
+};
+
 // ---- Moonraker --------------------------------------------------------------------------------------------------
 
 export interface FakeMoonraker extends Base {
@@ -174,9 +214,14 @@ export interface FakeMoonraker extends Base {
   /** The JSON-RPC calls the sockets made. */
   calls: Array<{ method: string; params: unknown }>;
   files: string[];
+  /** Its job queue (null: no [job_queue] in its moonraker.conf). */
+  queue: { state: string; jobs: Array<{ filename: string; job_id: string; time_added: number }> } | null;
 }
 
-export async function fakeMoonraker(options: { apiKey?: string; hostname?: string } = {}): Promise<FakeMoonraker> {
+/** The webcam Moonraker lists by default: mjpg-streamer behind the printer's web pages. */
+export const FAKE_WEBCAM = { name: 'Bed', service: 'mjpegstreamer', enabled: true, stream_url: '/webcam/?action=stream', snapshot_url: '/webcam/?action=snapshot', flip_horizontal: false, flip_vertical: true, rotation: 90 };
+
+export async function fakeMoonraker(options: { apiKey?: string; hostname?: string; webcams?: unknown[]; cameraCors?: boolean; queue?: boolean } = {}): Promise<FakeMoonraker> {
   const objects: Record<string, Record<string, unknown>> = {
     webhooks: { state: 'ready', state_message: 'Printer is ready' },
     print_stats: { state: 'standby', filename: '', print_duration: 0, message: '' },
@@ -187,6 +232,13 @@ export async function fakeMoonraker(options: { apiKey?: string; hostname?: strin
   const calls: FakeMoonraker['calls'] = [];
   const files: string[] = ['old/part.gcode'];
   const allowed = (key: string | null) => !options.apiKey || key === options.apiKey;
+  const queue: FakeMoonraker['queue'] = options.queue === false ? null : { state: 'ready', jobs: [] };
+  let nextJob = 1;
+  const queueAnswer = () => ({ queued_jobs: queue!.jobs.map((j) => ({ ...j, time_in_queue: 1 })), queue_state: queue!.state });
+  /** Tells every socket the queue changed, as Moonraker does. */
+  const queueChanged = (action: string) => {
+    for (const ws of base.sockets) ws.send(JSON.stringify({ jsonrpc: '2.0', method: 'notify_job_queue_changed', params: [{ action, updated_queue: action === 'state_changed' ? null : queueAnswer().queued_jobs, queue_state: queue!.state }] }));
+  };
   /** Tells every socket what changed, as Moonraker does. */
   const notify = (status: Record<string, Record<string, unknown>>) => {
     for (const [k, v] of Object.entries(status)) objects[k] = { ...objects[k], ...v };
@@ -194,8 +246,41 @@ export async function fakeMoonraker(options: { apiKey?: string; hostname?: strin
   };
   const base = await serve(
     (req, res, body, rec) => {
-      const path = rec.path.split('?')[0];
+      const [path, query = ''] = rec.path.split('?');
+      // The printer's web pages serve the camera, not Moonraker: no key.
+      if (path === '/webcam/' && cameraAction(query)) return answerCamera(res, cameraAction(query)!, options.cameraCors !== false);
       if (!allowed(rec.apiKey)) return json(res, 401, { error: { code: 401, message: 'Unauthorized' } });
+      if (path === '/server/webcams/list') return json(res, 200, { result: { webcams: options.webcams ?? [FAKE_WEBCAM] } });
+      if (path.startsWith('/server/job_queue/')) {
+        if (!queue) return json(res, 404, { error: { code: 404, message: 'Not Found' } });
+        const params = new URLSearchParams(query);
+        if (path === '/server/job_queue/status') return json(res, 200, { result: queueAnswer() });
+        if (path === '/server/job_queue/job' && req.method === 'POST') {
+          const asked = body ? ((JSON.parse(body) as { filenames?: string[] }).filenames ?? []) : (params.get('filenames') ?? '').split(',').filter(Boolean);
+          for (const filename of asked) queue.jobs.push({ filename, job_id: (nextJob++).toString(16).padStart(10, '0').toUpperCase(), time_added: 1_790_000_000 + nextJob });
+          queueChanged('jobs_added');
+          return json(res, 200, { result: queueAnswer() });
+        }
+        if (path === '/server/job_queue/job' && req.method === 'DELETE') {
+          const ids = (params.get('job_ids') ?? '').split(',');
+          queue.jobs = params.get('all') === 'true' ? [] : queue.jobs.filter((j) => !ids.includes(j.job_id));
+          queueChanged('jobs_removed');
+          return json(res, 200, { result: queueAnswer() });
+        }
+        if (path === '/server/job_queue/pause' && req.method === 'POST') {
+          queue.state = 'paused';
+          queueChanged('state_changed');
+          return json(res, 200, { result: queueAnswer() });
+        }
+        if (path === '/server/job_queue/start' && req.method === 'POST') {
+          queue.state = 'ready';
+          const idle = !['printing', 'paused'].includes(String(objects.print_stats.state));
+          const next = idle ? queue.jobs.shift() : undefined;
+          if (next) notify({ print_stats: { state: 'printing', filename: next.filename, print_duration: 0 }, virtual_sdcard: { progress: 0 } });
+          queueChanged(next ? 'job_loaded' : 'state_changed');
+          return json(res, 200, { result: queueAnswer() });
+        }
+      }
       if (path === '/server/info') return json(res, 200, { result: { klippy_connected: true, klippy_state: 'ready', moonraker_version: 'v0.9.3' } });
       if (path === '/printer/info') return json(res, 200, { result: { state: 'ready', hostname: options.hostname ?? 'voron', software_version: 'v0.12.0' } });
       if (path === '/server/files/list') return json(res, 200, { result: files.map((p) => ({ path: p, size: 10, modified: 0 })) });
@@ -225,17 +310,14 @@ export async function fakeMoonraker(options: { apiKey?: string; hostname?: strin
           return s.send(JSON.stringify({ jsonrpc: '2.0', result: { connection_id: 1 }, id: m.id }));
         }
         if (m.method === 'printer.objects.subscribe') return s.send(JSON.stringify({ jsonrpc: '2.0', result: { eventtime: 1, status: objects }, id: m.id }));
+        if (m.method === 'server.job_queue.status') return s.send(JSON.stringify(queue ? { jsonrpc: '2.0', result: queueAnswer(), id: m.id } : { jsonrpc: '2.0', error: { code: -32601, message: 'Method not found' }, id: m.id }));
       });
       if (ws) base.sockets.add(ws);
     },
   );
-  return {
-    ...base,
-    objects,
-    calls,
-    files,
-    push: notify,
-  };
+  const out = Object.assign(base, { objects, calls, files, push: notify }) as unknown as FakeMoonraker;
+  Object.defineProperty(out, 'queue', { get: () => queue });
+  return out;
 }
 
 // ---- OctoPrint --------------------------------------------------------------------------------------------------
@@ -247,13 +329,17 @@ export interface FakeOctoPrint extends Base {
   files: string[];
 }
 
-export async function fakeOctoPrint(options: { apiKey: string; appKeys?: boolean }): Promise<FakeOctoPrint> {
+/** OctoPrint's webcam settings by default: the stream behind OctoPrint's own address, the snapshot on port 8080. */
+export const FAKE_OCTOPRINT_WEBCAM = { webcamEnabled: true, streamUrl: '/webcam/?action=stream', snapshotUrl: 'http://127.0.0.1:8080/?action=snapshot', flipH: false, flipV: false, rotate90: true };
+
+export async function fakeOctoPrint(options: { apiKey: string; appKeys?: boolean; webcam?: Record<string, unknown>; cameraCors?: boolean }): Promise<FakeOctoPrint> {
   const state: FakeOctoPrint['state'] = { flags: { operational: true, ready: true, printing: false, paused: false, error: false }, text: 'Operational', file: null, completion: null, left: null, connected: true };
   const files: string[] = ['box.gcode'];
   const tokens = new Map<string, number>();
   const fake: { keyRequest: FakeOctoPrint['keyRequest'] } = { keyRequest: 'approve' };
   const base = await serve((req, res, body, rec) => {
-    const path = rec.path.split('?')[0];
+    const [path, query = ''] = rec.path.split('?');
+    if (path === '/webcam/' && cameraAction(query)) return answerCamera(res, cameraAction(query)!, options.cameraCors !== false);
     if (path === '/plugin/appkeys/probe') return options.appKeys === false ? json(res, 404, {}) : res.writeHead(204).end();
     if (path === '/plugin/appkeys/request' && req.method === 'POST') {
       const token = `token-${tokens.size + 1}`;
@@ -272,6 +358,7 @@ export async function fakeOctoPrint(options: { apiKey: string; appKeys?: boolean
     if (!path.startsWith('/api/')) return json(res, 404, { error: 'Not found' });
     if (rec.apiKey !== options.apiKey) return json(res, 403, { error: 'You don\'t have the permission to access the requested resource.' });
     if (path === '/api/version') return json(res, 200, { api: '0.1', server: '1.10.2', text: 'OctoPrint 1.10.2' });
+    if (path === '/api/settings') return json(res, 200, { api: { allowCrossOrigin: true }, webcam: options.webcam ?? FAKE_OCTOPRINT_WEBCAM });
     if (path === '/api/printer') {
       if (!state.connected) return json(res, 409, { error: 'Printer is not operational' });
       return json(res, 200, { state: { text: state.text, flags: state.flags }, temperature: { tool0: { actual: 210.4, target: 210 }, bed: { actual: 59.8, target: 60 } } });
@@ -368,11 +455,18 @@ export interface FakeElegoo extends Base {
   acks: Map<number, number>;
   silent: Set<number>;
   pushStatus(status: Record<string, unknown>): void;
+  /** Where its camera's stream is (`127.0.0.1:<port>`), or null for none. */
+  videoHost: string | null;
 }
 
 export const ELEGOO_MAINBOARD = '0123456789abcdef';
 
-export async function fakeElegoo(): Promise<FakeElegoo> {
+/**
+ * The Elegoo fake. Its camera (unless `camera` is false) is a second server, as the printer's port 3031 is; 386
+ * answers its address under another IP address (192.0.2.7, which nothing reaches), as the printer names itself.
+ */
+export async function fakeElegoo(options: { camera?: boolean; cameraCors?: boolean } = {}): Promise<FakeElegoo> {
+  const video = options.camera === false ? null : await serve((_req, res, _body, rec) => (rec.path.split('?')[0] === '/video' ? answerCamera(res, 'stream', options.cameraCors !== false) : json(res, 404, {})));
   const status: Record<string, unknown> = {
     CurrentStatus: [0],
     PrintInfo: { Status: 0, CurrentLayer: 0, TotalLayer: 0, CurrentTicks: 0, TotalTicks: 0, Filename: '', Progress: 0 },
@@ -399,6 +493,10 @@ export async function fakeElegoo(): Promise<FakeElegoo> {
         if (silent.has(cmd)) return;
         const data: Record<string, unknown> = { Ack: acks.get(cmd) ?? 0 };
         if (cmd === 258) data.FileList = [{ name: '/local/benchy.gcode', usedSize: 100, type: 1 }, { name: '/local/folder', type: 0 }];
+        if (cmd === 386 && !acks.has(386)) {
+          if (video) data.VideoUrl = `192.0.2.7:${video.host.split(':')[1]}/video`;
+          else data.Ack = 2;
+        }
         const info = status.PrintInfo as Record<string, unknown>;
         const next = data.Ack === 0 ? ({ 128: 13, 129: 6, 131: 13, 130: 0 } as Record<number, number>)[cmd] : undefined;
         if (cmd === 128 && data.Ack === 0) Object.assign(info, { Filename: String(m.Data.Data.Filename ?? '').replace(/^\/local\//, ''), Progress: 0 });
@@ -412,14 +510,20 @@ export async function fakeElegoo(): Promise<FakeElegoo> {
       if (ws) base.sockets.add(ws);
     },
   );
+  const closeSdcp = base.close;
   return Object.assign(base, {
     status,
     commands,
     acks,
     silent,
+    videoHost: video?.host ?? null,
     pushStatus(next: Record<string, unknown>) {
       Object.assign(status, next);
       for (const ws of base.sockets) ws.send(statusMessage());
+    },
+    close: async () => {
+      await closeSdcp();
+      await video?.close();
     },
   }) as FakeElegoo;
 }

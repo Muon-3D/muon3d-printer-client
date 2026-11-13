@@ -6,10 +6,57 @@
 // the page's origin. Status over Moonraker's WebSocket (`/websocket`: identify, with the API key where there is one,
 // then subscribe), everything else over HTTP with the key as X-Api-Key. Uploads go to the gcodes root and, asked to,
 // start at once (Moonraker's `print` field).
-import { askJson, brandEnv, emptyStatus, fraction, httpUrl, keepSocket, parseJson, record, seconds, StatusHub, temp, text } from './live.ts';
-import type { BrandAdapter, BrandCapabilities, BrandEnv, BrandFile, BrandProbe, BrandStatus, BrandTarget, BrandUpload } from './types.ts';
+//
+// Its cameras are the ones Moonraker lists (`/server/webcams/list`), their addresses relative to the printer's web
+// pages. Its job queue (Moonraker's `[job_queue]`): read with the status (`server.job_queue.status`, then
+// `notify_job_queue_changed`), and added to, emptied, started and paused over HTTP.
+import { askJson, bareHost, brandEnv, cameraUrl, emptyStatus, fraction, httpUrl, keepSocket, parseJson, record, rotationOf, seconds, StatusHub, temp, text } from './live.ts';
+import type { BrandAdapter, BrandCamera, BrandCapabilities, BrandEnv, BrandFile, BrandProbe, BrandQueue, BrandStatus, BrandTarget, BrandUpload } from './types.ts';
 
-export const MOONRAKER_CAPABILITIES: BrandCapabilities = { upload: true, startStored: true, listFiles: true, pauseResume: true, stop: true };
+export const MOONRAKER_CAPABILITIES: BrandCapabilities = { upload: true, startStored: true, listFiles: true, pauseResume: true, stop: true, camera: true, queue: true };
+
+/** Moonraker's own port: a camera's relative address belongs to the printer's web pages (port 80), not to Moonraker. */
+const MOONRAKER_PORT = 7125;
+
+/** The webcam services whose stream is MJPEG, and the one a page reads a picture at a time. */
+const MJPEG_SERVICES = new Set(['mjpegstreamer', 'uv4l-mjpeg', 'ipstream']);
+const SNAPSHOT_SERVICES = new Set(['mjpegstreamer-adaptive']);
+
+/** The cameras in Moonraker's webcam list, for a printer at `host` (a disabled one is left out). */
+export function moonrakerCameras(webcams: unknown, host: string): BrandCamera[] {
+  const base = `http://${host.endsWith(`:${MOONRAKER_PORT}`) ? bareHost(host) : host}`;
+  return (Array.isArray(webcams) ? webcams : []).flatMap((w): BrandCamera[] => {
+    const c = record(w);
+    if (c.enabled === false) return [];
+    const service = text(c.service) ?? 'mjpegstreamer';
+    const stream = cameraUrl(c.stream_url, base);
+    const snapshot = cameraUrl(c.snapshot_url, base);
+    const pageUrl = stream ?? snapshot;
+    if (!pageUrl) return [];
+    const kind = SNAPSHOT_SERVICES.has(service) ? (snapshot ? 'snapshot' : 'other') : MJPEG_SERVICES.has(service) ? (stream ? 'mjpeg' : snapshot ? 'snapshot' : 'other') : 'other';
+    const url = kind === 'mjpeg' ? stream : kind === 'snapshot' ? snapshot : null;
+    return [{ name: text(c.name) ?? 'Camera', kind, url, pageUrl, flipH: c.flip_horizontal === true, flipV: c.flip_vertical === true, rotation: rotationOf(c.rotation) }];
+  });
+}
+
+const QUEUE_STATES = new Set<BrandQueue['state']>(['ready', 'paused', 'loading', 'starting']);
+const queueState = (value: unknown): BrandQueue['state'] => (QUEUE_STATES.has(value as BrandQueue['state']) ? (value as BrandQueue['state']) : 'paused');
+
+/** The queue from Moonraker's answer (`queued_jobs`, `queue_state`); null when it is not one. */
+export function moonrakerQueue(answer: unknown): BrandQueue | null {
+  const r = record(answer);
+  if (!Array.isArray(r.queued_jobs)) return null;
+  return { state: queueState(r.queue_state), jobs: queueJobs(r.queued_jobs) };
+}
+
+function queueJobs(list: unknown[]): BrandQueue['jobs'] {
+  return list.flatMap((j) => {
+    const job = record(j);
+    const id = text(job.job_id);
+    const filename = text(job.filename);
+    return id && filename ? [{ id, filename, addedAt: typeof job.time_added === 'number' ? job.time_added * 1000 : null }] : [];
+  });
+}
 
 /** What the status subscription asks for. */
 const OBJECTS = { webhooks: ['state', 'state_message'], print_stats: null, virtual_sdcard: ['progress'], extruder: ['temperature', 'target'], heater_bed: ['temperature', 'target'] };
@@ -49,16 +96,25 @@ export function createMoonrakerAdapter(target: BrandTarget, env: Partial<BrandEn
       for (const [name, fields] of Object.entries(record(status))) objects[name] = { ...objects[name], ...record(fields) };
       h.set(moonrakerStatus(objects));
     };
+    let queueRequest = -1;
     const socket = keepSocket(e, h, `ws://${target.host}/websocket`, undefined, {
       open(ws) {
         ws.send(JSON.stringify({ jsonrpc: '2.0', method: 'server.connection.identify', params: { client_name: 'Muon3D Slice', version: '1', type: 'web', url: 'https://muon3d.com', ...(key ? { api_key: key } : {}) }, id: id++ }));
         ws.send(JSON.stringify({ jsonrpc: '2.0', method: 'printer.objects.subscribe', params: { objects: OBJECTS }, id: id++ }));
+        queueRequest = id++;
+        ws.send(JSON.stringify({ jsonrpc: '2.0', method: 'server.job_queue.status', params: {}, id: queueRequest }));
       },
       message(data) {
         const m = record(parseJson(data));
         if (m.method === 'notify_status_update' && Array.isArray(m.params)) merge(m.params[0]);
         else if (m.method === 'notify_klippy_disconnected' || m.method === 'notify_klippy_shutdown') merge({ webhooks: { state: m.method === 'notify_klippy_shutdown' ? 'shutdown' : 'disconnected' } });
         else if (m.method === 'notify_klippy_ready') merge({ webhooks: { state: 'ready', state_message: '' } });
+        else if (m.method === 'notify_job_queue_changed' && Array.isArray(m.params)) {
+          // updated_queue is null when only the state changed.
+          const change = record(m.params[0]);
+          const before = h.get().queue;
+          h.set({ queue: { state: queueState(change.queue_state ?? before?.state), jobs: Array.isArray(change.updated_queue) ? queueJobs(change.updated_queue) : (before?.jobs ?? []) } });
+        } else if (m.id === queueRequest) h.set({ queue: m.error ? null : moonrakerQueue(m.result) });
         else if (record(m.result).status) merge(record(m.result).status);
       },
     });
@@ -66,6 +122,11 @@ export function createMoonrakerAdapter(target: BrandTarget, env: Partial<BrandEn
   });
   const post = async (path: string, body: unknown = {}) => {
     await askJson(e, url(path), { method: 'POST', body, apiKey: key });
+  };
+  /** A queue request; its answer is the queue as it now stands. */
+  const queueAsk = async (method: 'POST' | 'DELETE', path: string, body?: unknown) => {
+    const queue = moonrakerQueue(resultOf(await askJson(e, url(path), { method, body: method === 'POST' ? (body ?? {}) : undefined, apiKey: key })));
+    if (queue) hub.set({ queue });
   };
   return {
     kind: 'moonraker',
@@ -92,6 +153,15 @@ export function createMoonrakerAdapter(target: BrandTarget, env: Partial<BrandEn
     },
     async startFile(path: string) {
       await post(`/printer/print/start?filename=${encodeURIComponent(path)}`);
+    },
+    async cameras(): Promise<BrandCamera[]> {
+      return moonrakerCameras(record(resultOf(await askJson(e, url('/server/webcams/list'), { apiKey: key }))).webcams, target.host);
+    },
+    queue: {
+      add: (paths) => queueAsk('POST', '/server/job_queue/job', { filenames: paths, reset: false }),
+      remove: (jobIds) => queueAsk('DELETE', `/server/job_queue/job?job_ids=${jobIds.map(encodeURIComponent).join(',')}`),
+      start: () => queueAsk('POST', '/server/job_queue/start'),
+      pause: () => queueAsk('POST', '/server/job_queue/pause'),
     },
     close: () => hub.close(),
   };
