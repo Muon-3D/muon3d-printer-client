@@ -5,7 +5,8 @@
 // - the printer (Moonraker, and the gateway in front of it on a remote connection), over HTTP: parsePrinterAnswer;
 //   an upload's answer, success included: parseUploadAnswer; over the WebSocket's JSON-RPC: parseRpcError;
 // - the network under a request: parseNetworkFailure (fetch), parseXhrFailure (an upload with progress),
-//   parseSocketClose (the status WebSocket);
+//   parseSocketClose (the status WebSocket); a request to the local network from a page this browser may block:
+//   parseLanFailure;
 // - the relay connection (the muon-link-web binding's errors and the relay's close codes): parseBindingError,
 //   parseCloseCode;
 // - the account service (the console): parseConsoleAnswer, parseConsoleFailure, parseConsolePrinter;
@@ -212,6 +213,28 @@ export function parseNetworkFailure(error: unknown, options: { sent?: number; co
   if (options.sent) return printerError('lost', `The connection broke off after ${options.sent} bytes were sent`, { detail: messageOf(error) });
   if (options.committed) return printerError('lost', 'The answer was lost: the request may have reached the printer', { detail: messageOf(error) });
   return printerError('offline', 'The request failed on the network', { detail: messageOf(error) });
+}
+
+/** The local network permission's state, as the browser reports it; `unknown` where it has none. */
+export type LocalNetworkState = 'granted' | 'denied' | 'prompt' | 'unknown';
+
+/**
+ * A request to a printer on the local network that failed under fetch, read with what the page knows of this browser:
+ * `pageBlocked`, the page is https and the printer plain http (only Chromium lets that through, after its local
+ * network prompt), and `permission`, the local network permission's state. On such a page a refused permission is
+ * `permission`, and a browser that has no such permission (`unknown`) is `chrome-only`. Anything else, an abort and a
+ * timeout first, reads as parseNetworkFailure reads it (`sent` and `committed` as there).
+ */
+export function parseLanFailure(
+  error: unknown,
+  context: { pageBlocked: boolean; permission: LocalNetworkState; sent?: number; committed?: boolean },
+): PrinterError {
+  const name = nameOf(error);
+  if (name !== 'AbortError' && name !== 'TimeoutError' && context.pageBlocked) {
+    if (context.permission === 'denied') return printerError('permission', 'The local network permission is refused for this page', { detail: messageOf(error) });
+    if (context.permission === 'unknown') return printerError('chrome-only', 'This browser does not let the page reach the local network', { detail: messageOf(error) });
+  }
+  return parseNetworkFailure(error, context);
 }
 
 /** An XMLHttpRequest that ended with `error`, `abort` or `timeout`, `sent` bytes into its upload. */

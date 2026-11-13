@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Muon 3D Technologies Limited
+// The Muon3D account service (the console): its API (api.ts), central sign-in with PKCE and the callback's checks
+// (central.ts, pkce.ts), the refresh-safe session (tokens.ts) and the settings a client reads strictly (config.ts).
+// Only these are the package's API; the modules' other exports are for its tests.
+export {
+  challengeIssuedAt,
+  CONSOLE_ANSWER_MS,
+  createConsoleApi,
+  NONCE_LIFETIME_S,
+  readAssertion,
+  readGrant,
+  readMe,
+  readNearby,
+  readPrinters,
+  readTokenPair,
+  type AccessGrant,
+  type Assertion,
+  type ConsoleApi,
+  type ConsoleApiOptions,
+  type ConsoleConfig,
+  type ConsolePrinter,
+  type ConsoleRole,
+  type Me,
+  type NearbyPrinter,
+  type TokenGrant,
+  type TokenOutcome,
+  type TokenPair,
+} from './api.ts';
+export { base64url, challengeOf, isVerifier, newState, newVerifier } from './pkce.ts';
+export {
+  authorizeUrl,
+  checkSignInAnswer,
+  CONSOLE_ALIASES,
+  isAuthCallback,
+  logoutForm,
+  PENDING_SIGN_IN_KEY,
+  prepareSignIn,
+  readSignInAnswer,
+  safeReturnTo,
+  sameConsole,
+  signInAnswerOf,
+  storePendingSignIn,
+  takePendingSignIn,
+  type AuthorizeInput,
+  type PendingSignIn,
+  type SignInAnswer,
+  type SignInOutcome,
+  type SignInStorage,
+} from './central.ts';
+export {
+  ACCESS_MARGIN_MS,
+  ACCOUNT_DB,
+  createSession,
+  idbSessionStore,
+  isSignedOut,
+  keyAfter,
+  memorySessionStore,
+  openAccountDb,
+  REFRESH_LOCK,
+  SESSIONS_STORE,
+  type Broadcast,
+  type ConsoleEvent,
+  type KeyEvent,
+  type RefreshLocks,
+  type Session,
+  type SessionOptions,
+  type SessionRecord,
+  type SessionStore,
+  type SignedIn,
+} from './tokens.ts';
+export { consoleOriginOf, isLoopbackHost, relayHostsOf, relayUrlAllowed } from './config.ts';

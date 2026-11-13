@@ -355,7 +355,7 @@ describe('the kinds', () => {
 
   it('say which errors end the connection for good', () => {
     const terminal = ERROR_KINDS.filter((kind) => isTerminal(printerError(kind, 'm')));
-    assert.deepEqual(terminal, ['refused', 'signed-out', 'protocol']);
+    assert.deepEqual(terminal, ['refused', 'signed-out', 'protocol', 'chrome-only', 'permission']);
     assert.equal(isTerminal(parseCloseCode(CLOSE_CODES.expired)), false);
   });
 });
