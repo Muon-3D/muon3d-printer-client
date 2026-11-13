@@ -57,6 +57,36 @@ Each folder is its own entry point (`@muon3d/printer-client/<folder>`), so a cli
   its bytes and the boundary its type names agree. `createRelayTransport({ grant, dial, regrant })` holds one
   printer's connection: dialled on the first request, dropped when a request fails, dialled again with a backoff, and
   with a new grant after two failed dials.
+- **`brands/`: printers of other kinds, directly on the local network.** Klipper through its Moonraker, OctoPrint,
+  Creality's stock firmware (K1, K2, Hi; its WebSocket on port 9999) and Elegoo's SDCP (the Centauri Carbon; its
+  WebSocket on port 3030). Each kind is an adapter with the same shape (`BrandAdapter`: `status()`, `subscribe`, which
+  opens the connection for the first listener and closes it after the last, `pause`, `resume`, `stop`, and where the
+  kind allows it `upload` (with start), `listFiles` and `startFile`), each its own entry point
+  (`/brands/moonraker`, `/brands/octoprint`, `/brands/creality`, `/brands/elegoo`) or loaded one at a time with
+  `loadBrand(kind)`. Each has a probe for an address (`found` with the printer's name, model and firmware, or why not:
+  `no-answer`, `needs-key`, `wrong-key`, `not-this-kind`). `BRANDS` says what each kind asks for and can do from a
+  page, and `brandSteps(kind, pageOrigin)` the steps on the printer first (Moonraker's `cors_domains`, OctoPrint's CORS
+  setting). `requestOctoPrintKey` asks OctoPrint for an API key through its Application Keys plugin.
+  `lanAddress(input)` takes only the local network's addresses (private, link-local and loopback IPv4; unique-local,
+  link-local and loopback IPv6; `localhost`, single labels and `.local`, `.lan`, `.home`, `.home.arpa`, `.internal`),
+  so a page sends nothing to the internet through this path; `browserReachesLan(protocol, userAgent)` says whether the
+  browser lets an https page reach the network at all (Chromium only). A page's own Content-Security-Policy cannot
+  name an address range, and must not list a bare `http:` or `ws:` for printers: CSP Level 3 matches `http:` to every
+  `https:` URL too, and `ws:` to `wss:`, `http:` and `https:`. Name local-network suffixes instead (`http://*.local:*`,
+  `ws://*.local:*`), and reach printers by those names. What a page can do with each kind:
+
+  | Kind | Status | Pause, resume, stop | Upload and start | Start a stored file | Set-up on the printer |
+  |---|---|---|---|---|---|
+  | Klipper (Moonraker) | yes | yes | yes | yes | the page's origin in `[authorization] cors_domains`; an API key if it asks |
+  | OctoPrint | yes | yes | yes | yes | Settings › API › Allow Cross Origin Resource Sharing; an API key |
+  | Creality K1, K2, Hi | yes | yes | no | no | none |
+  | Elegoo Centauri | yes | yes | no | yes | none |
+
+  Creality's firmware and SDCP publish no upload a page on another origin can use.
+- **`secrets/`: a printer's credentials in this browser.** `createSecretStore({ backend })` keeps an API key or a
+  password, remembered (encrypted with AES-GCM under a non-extractable key, both in IndexedDB: `idbSecretBackend`) or
+  in the page's memory only; each is found by a random reference, and forgetting the last remembered one deletes the
+  key.
 - **`check/`: the checks before a send.** `evaluateGates` says what a printer is offered for (Print while it is idle,
   Queue while it prints or is paused, Upload only) and which gate holds what back: the keep-out scan's verdict, a
   current slice, the setup it was sliced for, the person's role, the printer reachable and Klipper ready, its state,
@@ -140,8 +170,9 @@ if (isPrinterError(stored)) throw stored;
 ## Using it
 
 The sources are TypeScript with only erasable syntax, imported with their `.ts` extensions: `@muon3d/printer-client`
-(everything), and one entry point per folder: `/printers`, `/lan`, `/console`, `/relay`, `/check`, `/multipart` and
-`/errors`. A bundler that compiles
+(everything), and one entry point per folder: `/printers`, `/lan`, `/console`, `/relay`, `/check`, `/multipart`,
+`/errors`, `/brands` (and one per kind: `/brands/moonraker`, `/brands/octoprint`, `/brands/creality`, `/brands/elegoo`)
+and `/secrets`. A bundler that compiles
 TypeScript (Vite, esbuild, webpack with a TypeScript loader) reads them as they are. Node 22.18 or newer runs them
 directly, but not from inside `node_modules` (Node does not strip types there).
 
@@ -170,5 +201,10 @@ This repository is a mirror: the package is developed inside the Muon3D Slicer a
 release. Issues and pull requests are welcome here; accepted changes are made in the slicer and arrive with the next
 release.
 
-- Tests: `node --test "src/**/*.test.ts"` (Node 22.18 or newer). They are not in the published tarball.
+- Tests: `node --test "src/**/*.test.ts"` (Node 22.18 or newer). They are not in the published tarball, and neither
+  is `src/test-support/`: fake printers for each kind on 127.0.0.1 (a Moonraker, an OctoPrint, Creality's and Elegoo's
+  WebSockets) and enough of IndexedDB for the secrets.
+- Sources for the other kinds' protocols: Moonraker's documentation (authorization, the printer and file APIs, the
+  WebSocket's `server.connection.identify`), OctoPrint's REST API and Application Keys plugin documentation, and
+  Elegoo's published SDCP v3 specification. Creality's stock-firmware messages follow what the firmware sends.
 - Types: `tsc -p tsconfig.json` (TypeScript 5.9 with `@types/node`, which the tests use).
